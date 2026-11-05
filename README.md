@@ -77,6 +77,7 @@ History is averaged in PostgreSQL by the `climate_history` security-invoker RPC 
 - `tests/`: domain checks and executable local PostgreSQL schema/RLS/aggregation checks.
 
 Room URLs use `/room/?id=<uuid>` so any device can have a detail page without rebuilding static routes.
+Room links use normal document navigation so they work on static hosts without Next.js segment-prefetch rewrite rules. Authentication persists through Supabase's client session storage.
 
 ## Build, check, and install
 

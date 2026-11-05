@@ -230,12 +230,12 @@ function Overview({ roomsOnly }: { roomsOnly: boolean }) {
               </p>
             </div>
             {needsAttention.length ? (
-              <Link
+              <a
                 href={`/room/?id=${needsAttention[0].id}`}
                 aria-label={`View ${needsAttention[0].room}`}
               >
                 View room <ArrowUpRight size={16} />
-              </Link>
+              </a>
             ) : (
               <ShieldCheck size={23} />
             )}
@@ -478,7 +478,7 @@ function Devices() {
       />
       <div className="panel device-list">
         {rooms.map((room) => (
-          <Link
+          <a
             key={room.id}
             className="device-row"
             href={`/room/?id=${room.id}`}
@@ -492,7 +492,7 @@ function Devices() {
             </div>
             <StatusBadge room={room} now={now} />
             <ChevronRight size={17} />
-          </Link>
+          </a>
         ))}
         {!rooms.length && (
           <div className="empty-state">

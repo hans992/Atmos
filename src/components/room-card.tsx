@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   ArrowUpRight,
   Bath,
@@ -53,7 +52,7 @@ export function RoomCard({
 }) {
   const online = isOnline(room, now);
   return (
-    <Link
+    <a
       href={`/room/?id=${room.id}`}
       className={`room-card ${!online ? "room-stale" : ""}`}
       aria-label={`${room.room}, ${STATUS_LABELS[statusOf(room, now)]}, view details`}
@@ -117,6 +116,6 @@ export function RoomCard({
           <i />
         </span>
       </div>
-    </Link>
+    </a>
   );
 }
