@@ -35,7 +35,7 @@ export async function fetchHistory(
   const supabase = getSupabase();
   if (!supabase) throw new Error("Supabase is not configured.");
   const { data, error } = await supabase
-    .rpc("climate_history", { p_device_id: id, p_window: range })
+    .rpc("climate_history", { p_device_id: id ?? undefined, p_window: range })
     .abortSignal(signal);
   if (error) throw error;
   return data;

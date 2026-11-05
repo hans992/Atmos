@@ -66,7 +66,8 @@ History is averaged in PostgreSQL by the `climate_history` security-invoker RPC 
 
 - `src/app/`: App Router dashboard, room route, styles, metadata, manifest.
 - `src/components/`: shared shell, room cards, chart and time filters, state provider, PWA install control.
-- `src/lib/types.ts`: database/domain TypeScript types.
+- `src/lib/database.types.ts`: database types generated from the connected SmartHome Supabase project.
+- `src/lib/types.ts`: shared domain aliases and status/range types.
 - `src/lib/supabase.ts`: typed, singleton publishable-key client.
 - `src/lib/data.ts`: latest-reading queries and bounded history RPC.
 - `src/lib/demo.ts`: sample home and chart data.
