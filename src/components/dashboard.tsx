@@ -452,7 +452,7 @@ export function RoomDetail() {
             <ShieldCheck size={18} />
             <span>
               Comfort range: 18–26°C and 30–60% humidity. A sensor is marked
-              offline after 15 minutes without a reading.
+              offline after 10 minutes without a reading.
             </span>
           </div>
         </>
@@ -503,7 +503,7 @@ function Devices() {
       <div className="info-note">
         <Wifi size={18} />
         <span>
-          Online means a reading was received in the last 15 minutes. Devices
+          Online means a reading was received less than 10 minutes ago. Devices
           are managed in your Supabase database.
         </span>
       </div>
@@ -599,7 +599,7 @@ function Settings() {
           </div>
           <div className="setting-value">
             <span>Offline threshold</span>
-            <strong>15 minutes</strong>
+            <strong>10 minutes</strong>
           </div>
           {demo ? (
             <Link className="button primary" href="/?view=help">
@@ -722,7 +722,7 @@ function Help() {
             <b>Needs attention:</b> temperature or humidity outside that range.
           </p>
           <p>
-            <b>Offline:</b> no reading in more than 15 minutes. The last known
+            <b>Offline:</b> no reading for 10 minutes or longer. The last known
             values remain visible.
           </p>
           <p>

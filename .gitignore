@@ -6,3 +6,9 @@ out/
 *.tsbuildinfo
 .sites-runtime/
 public/sw.js
+firmware/.pio/
+firmware/.vscode/
+firmware/include/secrets.h
+*device-credentials*.json
+*device-key*.json
+*device-key*.sql

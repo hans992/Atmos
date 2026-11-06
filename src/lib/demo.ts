@@ -18,6 +18,7 @@ export function demoRooms(now: number): Room[] {
       active: true,
       created_at: new Date(now - 40 * 86400000).toISOString(),
       latest: {
+        ingest_request_id: null,
         id: i + 1,
         device_id: id,
         temperature,

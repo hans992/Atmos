@@ -14,11 +14,11 @@ export const STATUS_LABELS: Record<RoomStatus, string> = {
   inactive: "Inactive",
   waiting: "No readings",
 };
-export const STALE_AFTER_MS = 15 * 60 * 1000;
+export const STALE_AFTER_MS = 10 * 60 * 1000;
 export function statusOf(room: Room, now = Date.now()): RoomStatus {
   if (!room.active) return "inactive";
   if (!room.latest) return "waiting";
-  if (now - Date.parse(room.latest.created_at) > STALE_AFTER_MS)
+  if (now - Date.parse(room.latest.created_at) >= STALE_AFTER_MS)
     return "offline";
   if (room.latest.humidity > 60) return "high-humidity";
   if (room.latest.humidity < 30) return "low-humidity";

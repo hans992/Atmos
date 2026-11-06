@@ -43,22 +43,21 @@ Each `devices` row represents one ESP32-C3 with an SHT31 sensor and a room label
 
 `devices`: `id uuid`, `name text`, `room text`, `active boolean`, `created_at timestamptz`.
 
-`sensor_readings`: `id bigint identity`, `device_id uuid`, `temperature numeric(5,2)`, `humidity numeric(5,2)`, `created_at timestamptz`.
+`sensor_readings`: `id bigint identity`, `device_id uuid`, `temperature numeric(5,2)`, `humidity numeric(5,2)`, `created_at timestamptz`, `ingest_request_id uuid` (nullable).
 
-Timestamps use timezone-aware UTC storage. `(device_id, created_at)` is unique for retry deduplication. Temperature is validated from -40 to 125°C; humidity from 0 to 100%. The timestamp should reflect acquisition time and the sensor clock should be synchronized. Future readings are not displayed until their timestamp is reached.
+Timestamps use timezone-aware UTC storage. The ingestion server assigns receipt time. `(device_id, ingest_request_id)` deduplicates retried hardware uploads. The existing database temperature constraint is -40 to 125°C; the ingestion API applies a narrower -40 to 85°C range. Humidity must be 0 to 100%.
 
-Send device readings through your **trusted ingestion service**, which authenticates each device, validates its payload, and writes using server-only credentials. The dashboard deliberately grants browser viewers read-only access. This project does not include ESP32 firmware or an internet-facing ingestion endpoint. A typical validated ingestion payload is:
+The **secure `readings` Supabase Edge Function** authenticates each device using a unique random bearer key, validates the payload, and inserts into the existing table. Only SHA-256 key hashes are stored in a private credential table; viewers remain read-only. See [ESP32 setup and flashing instructions](docs/ESP32-SETUP.md) for the deployed endpoint, per-device configuration, testing and five-minute deep sleep. The payload is:
 
 ```json
 {
   "device_id": "YOUR_REGISTERED_DEVICE_UUID",
   "temperature": 22.4,
-  "humidity": 46.0,
-  "created_at": "2026-11-05T12:00:00Z"
+  "humidity": 46.0
 }
 ```
 
-The dashboard polls every 60 seconds. A sensor is offline after 15 minutes without readings; inactive and never-seen sensors are separate states. The current home averages exclude stale/inactive/no-data sensors. Room cards show last-known values for stale devices, clearly marked. Default comfort indicators use 18–26°C and 30–60% RH and are general UI references, not alarms.
+The dashboard polls every 60 seconds and refreshes on reconnect/foreground. Cards and open charts show new readings without rebuilding. A sensor is offline at 10 minutes without readings; inactive and never-seen sensors are separate states. The current home averages exclude stale/inactive/no-data sensors. Room cards show last-known values for stale devices, clearly marked. Default comfort indicators use 18–26°C and 30–60% RH and are general UI references, not alarms.
 
 History is averaged in PostgreSQL by the `climate_history` security-invoker RPC (15-minute / hourly / 6-hour buckets). This avoids Supabase's default REST row limit for dense month-long histories. Home history includes active devices' samples in each bucket; averages are sample-weighted. Current sensor values are queried independently using the `(device_id, created_at desc, id desc)` index. Empty intervals have no points; the chart visually connects the available samples and does not imply readings were taken in between.
 
@@ -71,7 +70,10 @@ History is averaged in PostgreSQL by the `climate_history` security-invoker RPC 
 - `src/lib/supabase.ts`: typed, singleton publishable-key client.
 - `src/lib/data.ts`: latest-reading queries and bounded history RPC.
 - `src/lib/demo.ts`: sample home and chart data.
-- `supabase/`: schema and optional seed SQL.
+- `supabase/`: schema, optional seed, ingestion upgrade SQL, and TypeScript Edge Function.
+- `firmware/`: Arduino/PlatformIO ESP32-C3 + SHT31 example (60-second test / five-minute deep sleep).
+- `docs/ESP32-SETUP.md`: hardware, keys, HTTPS API, flashing, troubleshooting and rotation.
+- `scripts/create-device-key.mjs`: offline administrator key-generation helper.
 - `src/service-worker.ts`: TypeScript service worker, compiled during build.
 - `scripts/build-worker.ts`: builds the worker and generates app icons.
 - `tests/`: domain checks and executable local PostgreSQL schema/RLS/aggregation checks.
@@ -97,5 +99,7 @@ The service worker caches only the offline fallback and app icons. It **does not
 ## Verification
 
 `npm test` runs the SQL against PGlite's actual PostgreSQL runtime with local Supabase-role/auth stubs. It verifies schema creation, sample readings, numeric/FK constraints, denial of anonymous/unauthorized reads, authorized reads, denial of viewer writes, rejection of user-editable metadata authorization, and full 30-day aggregation. These checks do not substitute for testing against your chosen hosted Supabase project.
+
+Ingestion tests also exercise HTTP input limits, key hashing, device binding, inactive/revoked credentials, numeric validation, idempotent retries, conflicting retry IDs, rate limits, and the exact 10-minute offline boundary. The SmartHome endpoint was tested over HTTPS with a controlled reading, wrong keys, a mismatched device, invalid payloads, deduplication, and concurrent rate-limited requests. Physical sensor measurements and sleep current require your board.
 
 Implementation references: [Supabase RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [Next.js static exports](https://nextjs.org/docs/app/guides/static-exports), [Next.js PWA guide](https://nextjs.org/docs/app/guides/progressive-web-apps).

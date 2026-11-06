@@ -1,0 +1,4 @@
+[functions.readings]
+# Device bearer keys are validated by the handler and atomic SQL function.
+# These are deliberately not Supabase Auth JWTs.
+verify_jwt = false

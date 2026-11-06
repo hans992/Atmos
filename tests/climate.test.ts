@@ -3,6 +3,14 @@ import assert from "node:assert/strict";
 import { demoRooms, demoHistory } from "../src/lib/demo";
 import { statusOf, isOnline, mean, STALE_AFTER_MS } from "../src/lib/climate";
 const now = Date.parse("2026-11-05T12:00:00Z");
+test("online ends exactly ten minutes after the last reading", () => {
+  const room = demoRooms(now)[0];
+  const aged = (age: number) => ({ ...room, latest: { ...room.latest!, created_at: new Date(now - age).toISOString() } });
+  assert.equal(STALE_AFTER_MS, 600000);
+  assert.equal(isOnline(aged(599999), now), true);
+  assert.equal(isOnline(aged(600000), now), false);
+  assert.equal(statusOf(aged(600001), now), "offline");
+});
 test("status prioritizes unavailable data before comfort conditions", () => {
   const room = demoRooms(now)[0];
   assert.equal(statusOf({ ...room, active: false }, now), "inactive");

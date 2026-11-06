@@ -47,6 +47,13 @@ export function ClimateProvider({ children }: { children: ReactNode }) {
       refresh();
     };
     const offline = () => setConnected(false);
+    const foreground = () => {
+      if (document.visibilityState === "visible") {
+        setNow(Date.now());
+        refresh();
+      }
+    };
+    document.addEventListener("visibilitychange", foreground);
     window.addEventListener("online", online);
     window.addEventListener("offline", offline);
     const supabase = getSupabase();
@@ -60,6 +67,7 @@ export function ClimateProvider({ children }: { children: ReactNode }) {
       clearInterval(poll);
       window.removeEventListener("online", online);
       window.removeEventListener("offline", offline);
+      document.removeEventListener("visibilitychange", foreground);
       sub?.data.subscription.unsubscribe();
     };
   }, [refresh]);
