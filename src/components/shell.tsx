@@ -1,58 +1,147 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Activity,
   ArrowUpRight,
-  ChevronDown,
+  ChartNoAxesCombined,
   CircleHelp,
   House,
   LayoutGrid,
-  Menu,
+  Leaf,
   Moon,
+  Plus,
   RefreshCw,
   Settings2,
-  Sprout,
+  SlidersHorizontal,
   Sun,
   Wifi,
   X,
+  Zap,
 } from "lucide-react";
 import { useClimate } from "./climate-provider";
 import { InstallButton } from "./pwa";
 const navigation = [
-  { label: "Overview", icon: LayoutGrid, view: "overview" },
-  { label: "Rooms", icon: House, view: "rooms" },
-  { label: "Insights", icon: Activity, view: "insights" },
-  { label: "Devices", icon: Wifi, view: "devices" },
+  { label: "Home", icon: House, view: "overview" },
+  { label: "Rooms", icon: LayoutGrid, view: "rooms" },
+  { label: "History", icon: ChartNoAxesCombined, view: "insights" },
+  { label: "Settings", icon: Settings2, view: "settings" },
 ];
+function Brand() {
+  return (
+    <Link href="/" className="brand" aria-label="Atmos home">
+      <span className="brand-mark">
+        <Activity size={23} strokeWidth={1.8} />
+      </span>
+      atmos<span className="brand-period">.</span>
+    </Link>
+  );
+}
+function HomeActions() {
+  const [open, setOpen] = useState(false);
+  const container = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const close = () => {
+    setOpen(false);
+    trigger.current?.focus();
+  };
+  useEffect(() => {
+    if (!open) return;
+    panel.current
+      ?.querySelector<HTMLButtonElement>("button:not(:disabled)")
+      ?.focus();
+    const outside = (event: PointerEvent) => {
+      if (!container.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        trigger.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+  return (
+    <div
+      className="home-actions"
+      ref={container}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node))
+          setOpen(false);
+      }}
+    >
+      <button
+        ref={trigger}
+        className={`icon-button add-button ${open ? "is-open" : ""}`}
+        onClick={() => setOpen(!open)}
+        aria-label="Home actions"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-controls="home-actions-panel"
+      >
+        <Plus size={22} />
+      </button>
+      {open && (
+        <div
+          id="home-actions-panel"
+          ref={panel}
+          className="action-panel"
+          role="dialog"
+          aria-label="Home actions"
+        >
+          <div className="action-panel-heading">
+            <span>Make it your home</span>
+            <button
+              className="icon-button"
+              onClick={close}
+              aria-label="Close home actions"
+            >
+              <X size={17} />
+            </button>
+          </div>
+          <Link
+            href="/?view=help"
+            className="action-item"
+            onClick={() => setOpen(false)}
+          >
+            <Wifi size={20} />
+            <span>
+              Add a device<small>Open the sensor setup guide</small>
+            </span>
+            <ArrowUpRight size={16} />
+          </Link>
+          {[
+            { label: "Add a room", icon: LayoutGrid },
+            { label: "Add an automation", icon: Zap },
+            { label: "Calibrate a sensor", icon: SlidersHorizontal },
+            { label: "Add another home", icon: House },
+          ].map(({ label, icon: Icon }) => (
+            <button className="action-item" key={label} disabled>
+              <Icon size={20} />
+              <span>{label}</span>
+              <small className="soon-label">Coming soon</small>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const search = useSearchParams();
-  const view =
-    pathname === "/room/" || pathname === "/room"
-      ? "rooms"
-      : search.get("view") || "overview";
+  const view = pathname.startsWith("/room")
+    ? "rooms"
+    : search.get("view") || "overview";
   const { demo, now, loading, refresh, connected } = useClimate();
   const [dark, setDark] = useState(false);
-  const [menu, setMenu] = useState(false);
-  const [homeOpen, setHomeOpen] = useState(false);
-  const [mobile, setMobile] = useState(false);
-  useEffect(() => {
-    const media = matchMedia("(max-width: 760px)");
-    const update = () => setMobile(media.matches);
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, []);
-  useEffect(() => {
-    if (!menu) return;
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenu(false);
-    };
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, [menu]);
   useEffect(() => {
     setDark(document.documentElement.dataset.theme === "dark");
   }, []);
@@ -64,135 +153,87 @@ export function Shell({ children }: { children: ReactNode }) {
       localStorage.setItem("atmos-theme", next ? "dark" : "light");
     } catch {}
   }
-  useEffect(() => {
-    setMenu(false);
-  }, [pathname, view]);
   return (
     <div className="app-shell">
-      {menu && (
-        <button
-          className="sidebar-backdrop"
-          aria-label="Close navigation"
-          onClick={() => setMenu(false)}
-        />
-      )}
-      <aside
-        className={`sidebar ${menu ? "sidebar-open" : ""}`}
-        inert={mobile && !menu}
-      >
-        <Link href="/" className="brand" aria-label="Atmos home">
-          <span className="brand-mark">
-            <Activity size={25} />
+      <aside className="sidebar">
+        <Brand />
+        <div className="home-identity">
+          <span className="home-icon">
+            <House size={21} />
           </span>
-          atmos<span className="brand-period">.</span>
-        </Link>
-        <button
-          className="sidebar-close icon-button"
-          onClick={() => setMenu(false)}
-          aria-label="Close navigation"
-        >
-          <X size={20} />
-        </button>
-        <div className="home-switch">
-          <button
-            onClick={() => setHomeOpen(!homeOpen)}
-            aria-expanded={homeOpen}
-          >
-            <span className="home-icon">
-              <House size={18} />
-            </span>
-            <span>
-              <strong>My home</strong>
-              <small>Your personal space</small>
-            </span>
-            <ChevronDown size={14} />
-          </button>
-          {homeOpen && (
-            <div className="home-popover">
-              One home. Every room connected.
-              <br />
-              <Link href="/?view=settings" onClick={() => setHomeOpen(false)}>
-                Manage connection <ArrowUpRight size={13} />
-              </Link>
-            </div>
-          )}
+          <div>
+            <strong>My home</strong>
+            <small>Your everyday atmosphere</small>
+          </div>
         </div>
-        <p className="nav-label">WORKSPACE</p>
         <nav aria-label="Main navigation">
           {navigation.map(({ label, icon: Icon, view: key }) => (
             <Link
-              href={key === "overview" ? "/" : `/?view=${key}`}
-              className={view === key ? "nav-item active" : "nav-item"}
               key={key}
+              href={key === "overview" ? "/" : `/?view=${key}`}
+              className={`nav-item ${view === key ? "active" : ""}`}
+              aria-current={view === key ? "page" : undefined}
             >
-              <Icon size={19} strokeWidth={1.7} />
-              {label}
-              {key === "rooms" && (
-                <span className="nav-count">
-                  <RoomCount />
-                </span>
-              )}
-              {key === "overview" && <span className="active-dot" />}
+              <Icon size={20} strokeWidth={1.7} />
+              <span>{label}</span>
+              {view === key && <span className="active-dot" />}
             </Link>
           ))}
+          <Link
+            href="/?view=devices"
+            className={`nav-item ${view === "devices" ? "active" : ""}`}
+            aria-current={view === "devices" ? "page" : undefined}
+          >
+            <Wifi size={20} strokeWidth={1.7} />
+            Sensors
+          </Link>
         </nav>
         <div className="sidebar-bottom">
           <div className="sidebar-note">
-            <div className="note-leaf">
-              <Sprout size={20} />
-            </div>
+            <Leaf size={24} strokeWidth={1.5} />
             <strong>
-              A happier home starts
-              <br />
-              with a little awareness.
+              A little awareness.
+              <br />A better home.
             </strong>
-            <p>Small insights. Everyday comfort.</p>
-            <InstallButton />
+            <p>Comfort, one room at a time.</p>
           </div>
           <Link
-            className={view === "settings" ? "nav-item active" : "nav-item"}
-            href="/?view=settings"
+            href="/?view=help"
+            className={`nav-item ${view === "help" ? "active" : ""}`}
           >
-            <Settings2 size={19} />
-            Settings
-          </Link>
-          <Link className="nav-item" href="/?view=help">
             <CircleHelp size={19} />
-            Help & getting started
-            <ArrowUpRight size={13} />
+            Help & setup
+            <ArrowUpRight size={15} />
           </Link>
           <div className="sidebar-profile">
-            <span className="avatar">H</span>
-            <div>
-              <strong>Home workspace</strong>
-              <small>{demo ? "Demo experience" : "Private dashboard"}</small>
-            </div>
             <span className="profile-dot" />
+            <span>
+              {demo ? "Sample home" : "Private home"}
+              <small>ESP32-C3 · SHT31</small>
+            </span>
           </div>
         </div>
       </aside>
       <div className="main-column">
         <header className="topbar">
-          <div className="breadcrumb">
-            <button
-              className="mobile-menu icon-button"
-              onClick={() => setMenu(true)}
-              aria-label="Open navigation"
-            >
-              <Menu size={21} />
-            </button>
-            <House size={15} />
+          <div className="mobile-brand">
+            <Brand />
+          </div>
+          <div className="desktop-context">
+            <House size={16} />
             <span>My home</span>
             <span className="slash">/</span>
-            <strong>{view.charAt(0).toUpperCase() + view.slice(1)}</strong>
+            <strong>
+              {navigation.find((n) => n.view === view)?.label ??
+                (view === "devices" ? "Sensors" : "Help & setup")}
+            </strong>
           </div>
           <div className="header-actions">
             <span className="header-date">
               {now
                 ? new Date(now).toLocaleDateString("en-GB", {
                     day: "numeric",
-                    month: "short",
-                    year: "numeric",
+                    month: "long",
                   })
                 : ""}
             </span>
@@ -200,16 +241,16 @@ export function Shell({ children }: { children: ReactNode }) {
               className={`connection-pill ${!connected ? "disconnected" : ""}`}
             >
               <span />
-              {!connected ? "Offline" : demo ? "Demo mode" : "Connected"}
+              {!connected ? "Offline" : demo ? "Demo" : "Connected"}
             </span>
             <button
-              className="icon-button"
+              className="icon-button refresh-button"
               onClick={refresh}
               aria-label="Refresh readings"
               title="Refresh readings"
               disabled={loading}
             >
-              <RefreshCw size={17} className={loading ? "spin" : ""} />
+              <RefreshCw size={18} className={loading ? "spin" : ""} />
             </button>
             <button
               className="icon-button theme-button"
@@ -217,22 +258,34 @@ export function Shell({ children }: { children: ReactNode }) {
               aria-label={`Switch to ${dark ? "light" : "dark"} mode`}
               title={`Switch to ${dark ? "light" : "dark"} mode`}
             >
-              {dark ? <Sun size={18} /> : <Moon size={18} />}
+              {dark ? <Sun size={20} /> : <Moon size={20} />}
             </button>
+            <HomeActions />
           </div>
         </header>
         <main id="main-content">{children}</main>
         <footer className="page-footer">
           <span>
-            <span className="tiny-brand">a.</span> A little awareness. A better
+            <span className="tiny-brand">a.</span>A little awareness. A better
             home.
           </span>
-          <span>Made for your everyday atmosphere.</span>
+          <InstallButton />
+          <span>Designed around your everyday.</span>
         </footer>
       </div>
+      <nav className="mobile-nav" aria-label="Mobile navigation">
+        {navigation.map(({ label, icon: Icon, view: key }) => (
+          <Link
+            key={key}
+            href={key === "overview" ? "/" : `/?view=${key}`}
+            aria-current={view === key ? "page" : undefined}
+            className={view === key ? "active" : ""}
+          >
+            <Icon size={21} strokeWidth={view === key ? 2 : 1.6} />
+            <span>{label}</span>
+          </Link>
+        ))}
+      </nav>
     </div>
   );
-}
-function RoomCount() {
-  return <>{useClimate().rooms.length}</>;
 }

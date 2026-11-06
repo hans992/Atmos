@@ -23,6 +23,7 @@ import { HistoryChart } from "./history-chart";
 import { RoomCard, RoomIcon, StatusBadge } from "./room-card";
 import { display, isOnline, mean, relativeTime, statusOf } from "@/lib/climate";
 import { getSupabase } from "@/lib/supabase";
+import { isOutdoor, roomTone } from "@/lib/room-presentation";
 
 export function DataNotice() {
   const { error, demo, connected, refresh, refreshed } = useClimate();
@@ -92,7 +93,7 @@ export function Dashboard() {
         <>
           <PageTitle
             eyebrow="A LITTLE PERSPECTIVE"
-            title="Every home has a rhythm."
+            title="Your home over time."
             subtitle="Explore how your temperature and humidity change over time."
           />
           <HistoryChart />
@@ -137,120 +138,100 @@ function Overview({ roomsOnly }: { roomsOnly: boolean }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const online = rooms.filter((r) => isOnline(r, now));
-  const comfortable = rooms.filter((r) => statusOf(r, now) === "comfortable");
-  const needsAttention = rooms.filter(
-    (r) => isOnline(r, now) && statusOf(r, now) !== "comfortable",
+  const indoors = online.filter((r) => !isOutdoor(r.room));
+  const comfortable = indoors.filter((r) => statusOf(r, now) === "comfortable");
+  const needsAttention = indoors.filter(
+    (r) => statusOf(r, now) !== "comfortable",
   );
+  const temperatures = indoors.map((r) => r.latest!.temperature);
   const filtered = rooms.filter(
     (r) =>
       r.room.toLowerCase().includes(query.toLowerCase()) &&
       (filter === "all" ||
         (filter === "attention"
-          ? statusOf(r, now) !== "comfortable"
+          ? !isOnline(r, now) ||
+            (!isOutdoor(r.room) && statusOf(r, now) !== "comfortable")
           : isOnline(r, now))),
   );
   return (
     <>
-      <PageTitle
-        eyebrow={roomsOnly ? "ROOM BY ROOM" : "YOUR HOME, AT A GLANCE"}
-        title={
-          roomsOnly ? "A space for every sensor." : "Your home, in balance."
-        }
-        subtitle={
-          roomsOnly
-            ? "Keep an eye on the spaces that matter to you."
-            : "A little insight into every room. A more comfortable everyday."
-        }
-      >
-        <span className="auto-update">
-          <span className="pulse-dot" />
-          {loading ? "Refreshing…" : "Updates every minute"}
-        </span>
-      </PageTitle>
-      {!roomsOnly && (
-        <>
-          <div className="summary-grid">
-            <Summary
-              label="Average temperature"
-              icon={<Thermometer size={18} />}
-              value={display(mean(online.map((r) => r.latest!.temperature)))}
-              unit="°C"
-              note="Across online rooms"
-              tint="peach"
-            />
-            <Summary
-              label="Average humidity"
-              icon={<Droplets size={18} />}
-              value={display(mean(online.map((r) => r.latest!.humidity)), 0)}
-              unit="%"
-              note="Across online rooms"
-              tint="blue"
-            />
-            <Summary
-              label="Sensors online"
-              icon={<Wifi size={18} />}
-              value={String(online.length)}
-              unit={`/ ${rooms.length}`}
-              note={
-                rooms.length - online.length
-                  ? `${rooms.length - online.length} sensor${rooms.length - online.length === 1 ? "" : "s"} unavailable`
-                  : "All sensors connected"
-              }
-              tint="green"
-            />
-            <Summary
-              label="Comfortable rooms"
-              icon={<Leaf size={18} />}
-              value={String(comfortable.length)}
-              unit={`/ ${rooms.length}`}
-              note="Within your comfort range"
-              tint="violet"
-            />
+      <section className={"home-hero " + (roomsOnly ? "rooms-hero" : "")}>
+        <div className="hero-intro">
+          <div className="eyebrow">
+            {roomsOnly ? "EVERY SPACE, CONNECTED" : "YOUR EVERYDAY ATMOSPHERE"}
           </div>
-          <div className="comfort-banner">
-            <span className="comfort-leaf">
-              <Sprout size={23} />
-            </span>
-            <div>
-              <strong>
-                {needsAttention.length
-                  ? statusOf(needsAttention[0], now) === "high-humidity"
-                    ? "A little fresh air could make a difference."
-                    : "One room could use a little attention."
-                  : online.length
-                    ? "Looking good. Your home feels just right."
-                    : "Your home is ready to connect."}
-              </strong>
-              <p>
-                {needsAttention.length
-                  ? `${needsAttention[0].room} is outside the comfort range. Take a closer look at its readings.`
-                  : online.length
-                    ? "Your connected rooms are within the temperature and humidity comfort ranges."
-                    : "Add your devices and start receiving climate readings."}
-              </p>
+          <h1>{roomsOnly ? "Your rooms." : "My home."}</h1>
+          <p>
+            {roomsOnly
+              ? "A little insight into every corner."
+              : "A calmer home starts with a little clarity."}
+          </p>
+          <span className="auto-update">
+            <span className="pulse-dot" />
+            {loading
+              ? "Refreshing readings…"
+              : online.length + " of " + rooms.length + " sensors online"}
+            <span className="auto-update-divider">·</span>Updates every minute
+          </span>
+        </div>
+        {!roomsOnly && (
+          <div className="hero-climate">
+            <div className="hero-climate-main">
+              <span className="metric-label">
+                <Thermometer size={16} /> Indoor temperature
+              </span>
+              <div className="hero-temperature">
+                {display(mean(temperatures))}
+                <span>°C</span>
+              </div>
+              <span className="hero-range">
+                {temperatures.length
+                  ? display(Math.min(...temperatures)) +
+                    "–" +
+                    display(Math.max(...temperatures)) +
+                    "°C indoor range"
+                  : "Waiting for indoor readings"}
+              </span>
             </div>
-            {needsAttention.length ? (
-              <a
-                href={`/room/?id=${needsAttention[0].id}`}
-                aria-label={`View ${needsAttention[0].room}`}
-              >
-                View room <ArrowUpRight size={16} />
-              </a>
-            ) : (
-              <ShieldCheck size={23} />
-            )}
+            <div className="hero-climate-secondary">
+              <div>
+                <span className="metric-label">
+                  <Droplets size={16} /> Humidity
+                </span>
+                <strong>
+                  {display(mean(indoors.map((r) => r.latest!.humidity)), 0)}
+                  <span>%</span>
+                </strong>
+              </div>
+              <div className="hero-comfort">
+                <Leaf size={18} />
+                <div>
+                  <strong>
+                    {!indoors.length
+                      ? "Ready to connect"
+                      : needsAttention.length
+                        ? "A little attention"
+                        : "Feels just right"}
+                  </strong>
+                  <small>
+                    {comfortable.length} of {indoors.length} indoor rooms
+                    optimal
+                  </small>
+                </div>
+              </div>
+            </div>
           </div>
-        </>
-      )}
+        )}
+      </section>
       <div className="section-heading rooms-heading">
         <div className="rooms-title">
-          <h2>Your rooms</h2>
+          <h2>{roomsOnly ? "All spaces" : "Your rooms"}</h2>
           <span className="count-badge">{rooms.length}</span>
         </div>
         <div className="room-controls">
           {roomsOnly && (
             <label className="search-field">
-              <Search size={15} />
+              <Search size={17} />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -271,13 +252,13 @@ function Overview({ roomsOnly }: { roomsOnly: boolean }) {
         </div>
       </div>
       <div className="rooms-grid">
-        {filtered.map((room, i) => (
-          <RoomCard key={room.id} room={room} index={i} now={now} />
+        {filtered.map((room) => (
+          <RoomCard key={room.id} room={room} now={now} />
         ))}
       </div>
       {!filtered.length && (
         <div className="empty-state">
-          <House size={28} />
+          <House size={30} />
           <h3>
             {rooms.length
               ? "No matching rooms"
@@ -286,63 +267,91 @@ function Overview({ roomsOnly }: { roomsOnly: boolean }) {
           <p>
             {rooms.length
               ? "Try a different room name or filter."
-              : "Register a device in Supabase, then send its first reading. Check your viewer access if you expected rooms here."}
+              : "Connect a sensor to start seeing your home’s climate. Check your viewer access if you expected rooms here."}
           </p>
           <Link href="/?view=help">
-            Getting started <ArrowRight size={14} />
+            Getting started <ArrowRight size={16} />
           </Link>
         </div>
       )}
       {!roomsOnly && (
-        <div className="overview-bottom">
-          <HistoryChart />
-          <aside className="panel comfort-guide">
-            <div className="guide-heading">
-              <span className="room-icon tint-3">
-                <Leaf size={20} />
-              </span>
-              <span className="eyebrow">FEEL-GOOD NUMBERS</span>
-            </div>
-            <h2>
-              A comfortable
-              <br />
-              place to be.
-            </h2>
-            <p>
-              Small changes in your space can make a big difference to your day.
-            </p>
-            <div className="guide-range">
-              <Thermometer size={17} />
-              <span>Temperature</span>
-              <strong>18–26°C</strong>
-            </div>
-            <div className="comfort-scale">
-              <span />
-            </div>
-            <div className="guide-range">
-              <Droplets size={17} />
-              <span>Humidity</span>
-              <strong>30–60%</strong>
-            </div>
-            <div className="comfort-scale humidity-scale">
-              <span />
-            </div>
-            <div className="guide-tip">
-              <Sprout size={17} />
+        <>
+          <div className="comfort-banner">
+            <span className="comfort-leaf">
+              <Leaf size={22} />
+            </span>
+            <div>
+              <strong>
+                {needsAttention.length
+                  ? needsAttention[0].room + " could use a closer look."
+                  : indoors.length
+                    ? "A little peace of mind."
+                    : "Every reading tells a story."}
+              </strong>
               <p>
-                Open a window after cooking or showering to help excess moisture
-                escape.
+                {needsAttention.length
+                  ? "Its latest reading is outside the indoor comfort range."
+                  : indoors.length
+                    ? "Your online indoor rooms are within the comfort range."
+                    : "Your home’s climate will appear as your sensors connect."}
               </p>
             </div>
-            <Link href="/?view=help">
-              About these ranges <ArrowUpRight size={14} />
-            </Link>
-          </aside>
-        </div>
+            {needsAttention.length ? (
+              <a href={"/room/?id=" + needsAttention[0].id}>
+                View room <ArrowUpRight size={17} />
+              </a>
+            ) : (
+              <ShieldCheck size={23} />
+            )}
+          </div>
+          <div className="overview-bottom">
+            <HistoryChart />
+            <aside className="panel comfort-guide">
+              <div className="guide-heading">
+                <span className="room-icon tone-green">
+                  <Leaf size={23} />
+                </span>
+                <span className="eyebrow">A LITTLE PERSPECTIVE</span>
+              </div>
+              <h2>Room to feel good.</h2>
+              <p>A simple reference for a comfortable indoor climate.</p>
+              <div className="guide-range">
+                <Thermometer size={18} />
+                <span>Temperature</span>
+                <strong>18–26°C</strong>
+              </div>
+              <div className="comfort-scale">
+                <span />
+              </div>
+              <div className="guide-range">
+                <Droplets size={18} />
+                <span>Humidity</span>
+                <strong>30–60%</strong>
+              </div>
+              <div className="comfort-scale humidity-scale">
+                <span />
+              </div>
+              <div className="guide-tip">
+                <Sprout size={18} />
+                <p>
+                  Outdoor readings have their own context. Indoor comfort ranges
+                  don’t apply outside.
+                </p>
+              </div>
+              <Link href="/?view=help">
+                Understanding your climate <ArrowUpRight size={16} />
+              </Link>
+            </aside>
+          </div>
+        </>
       )}
       <div className="last-sync">
         {refreshed
-          ? `Last synced ${new Date(refreshed).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`
+          ? "Last synced " +
+            new Date(refreshed).toLocaleTimeString(undefined, {
+              hour: "2-digit",
+              minute: "2-digit",
+            })
           : "Waiting for readings"}
         <span>·</span>ESP32-C3 + SHT31
       </div>
@@ -385,18 +394,28 @@ export function RoomDetail() {
   return (
     <AuthGate>
       <DataNotice />
-      <Link className="back-link" href="/">
+      <Link className="back-link" href="/?view=rooms">
         <ArrowLeft size={15} />
-        All rooms
+        Back to rooms
       </Link>
       {room ? (
         <>
           <PageTitle
-            eyebrow="YOUR ROOM, UP CLOSE"
+            eyebrow={
+              isOutdoor(room.room)
+                ? "A BREATH OF FRESH AIR"
+                : "YOUR ROOM, UP CLOSE"
+            }
             title={room.room}
             subtitle={`${room.name} · ESP32-C3 + SHT31`}
           >
-            <StatusBadge room={room} now={now} />
+            <span
+              className={
+                "detail-room-icon room-icon tone-" + roomTone(room.room)
+              }
+            >
+              <RoomIcon name={room.room} size={32} />
+            </span>
           </PageTitle>
           <div className="detail-summary">
             <Summary
@@ -425,8 +444,8 @@ export function RoomDetail() {
             />
             <div className="summary-card">
               <div className="summary-label">
-                Last reading
-                <Wifi size={18} />
+                Sensor status
+                <StatusBadge room={room} now={now} />
               </div>
               <div className="reading-age">
                 {room.latest
@@ -435,7 +454,8 @@ export function RoomDetail() {
               </div>
               <p>
                 {room.latest
-                  ? new Date(room.latest.created_at).toLocaleString()
+                  ? (isOnline(room, now) ? "Online · " : "Last reading · ") +
+                    new Date(room.latest.created_at).toLocaleString()
                   : "Waiting for your sensor"}
               </p>
             </div>
@@ -451,8 +471,9 @@ export function RoomDetail() {
           <div className="info-note">
             <ShieldCheck size={18} />
             <span>
-              Comfort range: 18–26°C and 30–60% humidity. A sensor is marked
-              offline after 10 minutes without a reading.
+              {isOutdoor(room.room)
+                ? "Outdoor humidity is shown for context; indoor comfort ranges do not apply. Dew point, absolute humidity, and ventilation guidance are not calculated."
+                : "Indoor comfort range: 18–26°C and 30–60% humidity. A sensor is marked offline after 10 minutes without a reading."}
             </span>
           </div>
         </>
@@ -478,11 +499,7 @@ function Devices() {
       />
       <div className="panel device-list">
         {rooms.map((room) => (
-          <a
-            key={room.id}
-            className="device-row"
-            href={`/room/?id=${room.id}`}
-          >
+          <a key={room.id} className="device-row" href={`/room/?id=${room.id}`}>
             <span className="room-icon tint-1">
               <RoomIcon name={room.room} />
             </span>
@@ -579,6 +596,18 @@ function Settings() {
         subtitle="Manage your connection and understand your dashboard."
       />
       <div className="settings-grid">
+        <div className="settings-shortcuts">
+          <Link className="button" href="/?view=devices">
+            <Wifi size={18} />
+            Sensors
+            <ChevronRight size={16} />
+          </Link>
+          <Link className="button" href="/?view=help">
+            <House size={18} />
+            Help & setup
+            <ChevronRight size={16} />
+          </Link>
+        </div>
         <section className="panel settings-panel">
           <div className="settings-icon">
             <Wifi size={22} />
@@ -733,7 +762,7 @@ function Help() {
           <h2>Take your home with you</h2>
           <p>
             Open Atmos in Chrome on Android and choose “Install Atmos” in the
-            sidebar, or “Add to Home screen” from the browser menu.
+            page footer, or “Add to Home screen” from the browser menu.
           </p>
           <p>
             The app needs HTTPS for installation. If your connection drops, an

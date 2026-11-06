@@ -82,7 +82,10 @@ export function HistoryChart({
     return () => controller.abort();
   }, [range, deviceId, demo, session, revision, retry]);
   const unit = metric === "temperature" ? "°C" : "%";
-  const color = metric === "temperature" ? "#8da543" : "#8997d4";
+  const color =
+    metric === "temperature"
+      ? "var(--chart-temperature)"
+      : "var(--chart-humidity)";
   const values = points.map((p) => p[metric]);
   const chartData = points.map((p) => ({
     ...p,
@@ -118,7 +121,7 @@ export function HistoryChart({
           <p>
             {detail
               ? "A closer look at your room’s climate."
-              : "The rhythm of your home, at a glance."}
+              : "A quieter view of the bigger picture."}
           </p>
         </div>
         <RangeFilter range={range} onChange={setRange} />
@@ -216,7 +219,7 @@ export function HistoryChart({
                 axisLine={false}
                 tickLine={false}
                 minTickGap={48}
-                tick={{ fontSize: 11, fill: "var(--muted)" }}
+                tick={{ fontSize: 12, fill: "var(--muted)" }}
                 dy={10}
               />
               <YAxis
@@ -229,7 +232,7 @@ export function HistoryChart({
                 axisLine={false}
                 tickLine={false}
                 tickCount={5}
-                tick={{ fontSize: 11, fill: "var(--muted)" }}
+                tick={{ fontSize: 12, fill: "var(--muted)" }}
               />
               <Tooltip
                 labelFormatter={(v) => new Date(Number(v)).toLocaleString()}
@@ -239,9 +242,9 @@ export function HistoryChart({
                 ]}
                 contentStyle={{
                   border: "1px solid var(--border)",
-                  borderRadius: 12,
+                  borderRadius: 16,
                   background: "var(--surface)",
-                  fontSize: 12,
+                  fontSize: 13,
                   color: "var(--text)",
                 }}
               />
