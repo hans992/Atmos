@@ -180,7 +180,6 @@ function Overview({ roomsOnly }: { roomsOnly: boolean }) {
             <span className="auto-update-divider">·</span>Updates every minute
           </span>
         </div>
-        {!roomsOnly && <WeatherWidget />}
         {!roomsOnly && (
           <div className="hero-climate">
             <div className="hero-climate-main">
@@ -229,6 +228,7 @@ function Overview({ roomsOnly }: { roomsOnly: boolean }) {
             </div>
           </div>
         )}
+        {!roomsOnly && <WeatherWidget />}
       </section>
       <div className="section-heading rooms-heading">
         <div className="rooms-title">
