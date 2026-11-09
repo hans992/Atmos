@@ -8,6 +8,9 @@ import "@fontsource/manrope/800.css";
 import "./globals.css";
 import { ClimateProvider } from "@/components/climate-provider";
 import { Shell } from "@/components/shell";
+import { AppearanceProvider } from "@/components/appearance-provider";
+import { WeatherProvider } from "@/components/weather-provider";
+import "./atmosphere.css";
 export const metadata: Metadata = {
   title: { default: "Atmos — Your home, in balance", template: "%s · Atmos" },
   description:
@@ -25,7 +28,7 @@ export const viewport: Viewport = {
   ],
 };
 const themeScript =
-  "try{var t=localStorage.getItem('atmos-theme');document.documentElement.dataset.theme=t||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){}";
+  "try{var t=localStorage.getItem('atmos-theme');document.documentElement.dataset.theme=t==='light'||t==='dark'?t:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){document.documentElement.dataset.theme=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}";
 export default function RootLayout({
   children,
 }: {
@@ -43,9 +46,13 @@ export default function RootLayout({
         <Suspense
           fallback={<div className="loading-state">Opening Atmos…</div>}
         >
-          <ClimateProvider>
-            <Shell>{children}</Shell>
-          </ClimateProvider>
+          <AppearanceProvider>
+            <WeatherProvider>
+              <ClimateProvider>
+                <Shell>{children}</Shell>
+              </ClimateProvider>
+            </WeatherProvider>
+          </AppearanceProvider>
         </Suspense>
       </body>
     </html>

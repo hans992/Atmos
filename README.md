@@ -1,6 +1,12 @@
 # Atmos — home climate
 
-A responsive home climate dashboard built with **Next.js App Router, TypeScript, Tailwind CSS, Recharts, and Supabase**. Includes light/dark mode, room cards, per-device room pages, 24-hour / 7-day / 30-day temperature and humidity charts, CSV export, sensor health, and Android PWA assets.
+A responsive home climate dashboard built with **Next.js App Router, TypeScript, Tailwind CSS, Recharts, and Supabase**. Includes Light/Dark/System modes, weather-reactive garden and glass surfaces, room cards, per-device room pages, 24-hour / 7-day / 30-day temperature and humidity charts, CSV export, sensor health, and Android PWA assets.
+
+## Weather & appearance
+
+Open **Settings → Appearance & Atmosphere** to change the theme, dynamic background, animation intensity, weather synchronization and garden/minimal background. The owner-selected default is **Duisburg–Rheinhausen** (district centre, not a street address). Change it with city search, coordinates, or optional browser location detection. Removing the location disables weather requests until another location is selected.
+
+Weather comes from [Open-Meteo](https://open-meteo.com/) independently of sensor readings. No weather API key, new environment variable, Supabase migration or server runtime is required for this personal home dashboard. The static app calls the public forecast/geocoding APIs directly. See [weather architecture and settings](docs/WEATHER.md) for caching, privacy, fallbacks, performance and limitations.
 
 ## Run locally
 

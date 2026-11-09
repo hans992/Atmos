@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { useClimate } from "./climate-provider";
 import { InstallButton } from "./pwa";
+import { useAppearance } from "./appearance-provider";
+import { WeatherAtmosphere } from "./weather-atmosphere";
 const navigation = [
   { label: "Home", icon: House, view: "overview" },
   { label: "Rooms", icon: LayoutGrid, view: "rooms" },
@@ -141,20 +143,13 @@ export function Shell({ children }: { children: ReactNode }) {
     ? "rooms"
     : search.get("view") || "overview";
   const { demo, now, loading, refresh, connected } = useClimate();
-  const [dark, setDark] = useState(false);
-  useEffect(() => {
-    setDark(document.documentElement.dataset.theme === "dark");
-  }, []);
+  const { dark, setTheme } = useAppearance();
   function theme() {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.dataset.theme = next ? "dark" : "light";
-    try {
-      localStorage.setItem("atmos-theme", next ? "dark" : "light");
-    } catch {}
+    setTheme(dark ? "light" : "dark");
   }
   return (
     <div className="app-shell">
+      <WeatherAtmosphere />
       <aside className="sidebar">
         <Brand />
         <div className="home-identity">

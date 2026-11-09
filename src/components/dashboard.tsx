@@ -24,6 +24,8 @@ import { RoomCard, RoomIcon, StatusBadge } from "./room-card";
 import { display, isOnline, mean, relativeTime, statusOf } from "@/lib/climate";
 import { getSupabase } from "@/lib/supabase";
 import { isOutdoor, roomTone } from "@/lib/room-presentation";
+import { WeatherWidget } from "./weather-widget";
+import { AtmosphereSettings } from "./atmosphere-settings";
 
 export function DataNotice() {
   const { error, demo, connected, refresh, refreshed } = useClimate();
@@ -155,7 +157,11 @@ function Overview({ roomsOnly }: { roomsOnly: boolean }) {
   );
   return (
     <>
-      <section className={"home-hero " + (roomsOnly ? "rooms-hero" : "")}>
+      <section
+        className={
+          "home-hero " + (roomsOnly ? "rooms-hero" : "weather-home-hero")
+        }
+      >
         <div className="hero-intro">
           <div className="eyebrow">
             {roomsOnly ? "EVERY SPACE, CONNECTED" : "YOUR EVERYDAY ATMOSPHERE"}
@@ -174,6 +180,7 @@ function Overview({ roomsOnly }: { roomsOnly: boolean }) {
             <span className="auto-update-divider">·</span>Updates every minute
           </span>
         </div>
+        {!roomsOnly && <WeatherWidget />}
         {!roomsOnly && (
           <div className="hero-climate">
             <div className="hero-climate-main">
@@ -608,6 +615,7 @@ function Settings() {
             <ChevronRight size={16} />
           </Link>
         </div>
+        <AtmosphereSettings />
         <section className="panel settings-panel">
           <div className="settings-icon">
             <Wifi size={22} />
