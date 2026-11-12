@@ -280,3 +280,7 @@ The test suite covers sensor status boundaries, payload validation, device authe
 ---
 
 <p align="center">A personal hardware and software project by <a href="https://github.com/hans992">hans992</a>.<br><sub>Comfort, one room at a time.</sub></p>
+
+## Indoor Climate Intelligence
+
+Room cards and detail pages now include absolute humidity, dew point, estimated mold risk, and weather-aware ventilation guidance. Expand **Climate Insights** to inspect recent trends and customize room thresholds. Preferences are stored on this browser. See [formulas, thresholds and limitations](docs/climate-intelligence.md). No database migration or firmware update is required.

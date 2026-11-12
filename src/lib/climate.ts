@@ -1,3 +1,4 @@
+import { DEFAULT_COMFORT, type Comfort } from "./intelligence";
 import type { Room, RoomStatus, TimeRange } from "./types";
 export const RANGE_HOURS: Record<TimeRange, number> = {
   "24h": 24,
@@ -15,15 +16,15 @@ export const STATUS_LABELS: Record<RoomStatus, string> = {
   waiting: "No readings",
 };
 export const STALE_AFTER_MS = 10 * 60 * 1000;
-export function statusOf(room: Room, now = Date.now()): RoomStatus {
+export function statusOf(room: Room, now = Date.now(), preferences: Comfort = DEFAULT_COMFORT): RoomStatus {
   if (!room.active) return "inactive";
   if (!room.latest) return "waiting";
-  if (now - Date.parse(room.latest.created_at) >= STALE_AFTER_MS)
+  if (!Number.isFinite(Date.parse(room.latest.created_at)) || now < Date.parse(room.latest.created_at) || now - Date.parse(room.latest.created_at) >= STALE_AFTER_MS)
     return "offline";
-  if (room.latest.humidity > 60) return "high-humidity";
-  if (room.latest.humidity < 30) return "low-humidity";
-  if (room.latest.temperature > 26) return "warm";
-  if (room.latest.temperature < 18) return "cool";
+  if (room.latest.humidity > preferences.maxHumidity) return "high-humidity";
+  if (room.latest.humidity < preferences.minHumidity) return "low-humidity";
+  if (room.latest.temperature > preferences.maxTemperature) return "warm";
+  if (room.latest.temperature < preferences.minTemperature) return "cool";
   return "comfortable";
 }
 export function isOnline(room: Room, now = Date.now()) {

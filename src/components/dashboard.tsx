@@ -25,6 +25,7 @@ import { display, isOnline, mean, relativeTime, statusOf } from "@/lib/climate";
 import { getSupabase } from "@/lib/supabase";
 import { isOutdoor, roomTone } from "@/lib/room-presentation";
 import { WeatherWidget } from "./weather-widget";
+import { ClimateInsights, useComfortPreferences } from "./climate-insights";
 import { AtmosphereSettings } from "./atmosphere-settings";
 
 export function DataNotice() {
@@ -136,14 +137,15 @@ function PageTitle({
   );
 }
 function Overview({ roomsOnly }: { roomsOnly: boolean }) {
+  const comfortPreferences = useComfortPreferences();
   const { rooms, now, loading, refreshed } = useClimate();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const online = rooms.filter((r) => isOnline(r, now));
   const indoors = online.filter((r) => !isOutdoor(r.room));
-  const comfortable = indoors.filter((r) => statusOf(r, now) === "comfortable");
+  const comfortable = indoors.filter((r) => statusOf(r, now, comfortPreferences[r.id]) === "comfortable");
   const needsAttention = indoors.filter(
-    (r) => statusOf(r, now) !== "comfortable",
+    (r) => statusOf(r, now, comfortPreferences[r.id]) !== "comfortable",
   );
   const temperatures = indoors.map((r) => r.latest!.temperature);
   const filtered = rooms.filter(
@@ -152,7 +154,7 @@ function Overview({ roomsOnly }: { roomsOnly: boolean }) {
       (filter === "all" ||
         (filter === "attention"
           ? !isOnline(r, now) ||
-            (!isOutdoor(r.room) && statusOf(r, now) !== "comfortable")
+            (!isOutdoor(r.room) && statusOf(r, now, comfortPreferences[r.id]) !== "comfortable")
           : isOnline(r, now))),
   );
   return (
@@ -325,7 +327,7 @@ function Overview({ roomsOnly }: { roomsOnly: boolean }) {
               <div className="guide-range">
                 <Thermometer size={18} />
                 <span>Temperature</span>
-                <strong>18–26°C</strong>
+                <strong>19–23°C</strong>
               </div>
               <div className="comfort-scale">
                 <span />
@@ -333,7 +335,7 @@ function Overview({ roomsOnly }: { roomsOnly: boolean }) {
               <div className="guide-range">
                 <Droplets size={18} />
                 <span>Humidity</span>
-                <strong>30–60%</strong>
+                <strong>40–60%</strong>
               </div>
               <div className="comfort-scale humidity-scale">
                 <span />
@@ -474,13 +476,13 @@ export function RoomDetail() {
               connection. Values shown are the last known readings.
             </div>
           )}
-          <HistoryChart deviceId={room.id} detail />
+          <ClimateInsights room={room} now={now} /><HistoryChart deviceId={room.id} detail />
           <div className="info-note">
             <ShieldCheck size={18} />
             <span>
               {isOutdoor(room.room)
                 ? "Outdoor humidity is shown for context; indoor comfort ranges do not apply. Dew point, absolute humidity, and ventilation guidance are not calculated."
-                : "Indoor comfort range: 18–26°C and 30–60% humidity. A sensor is marked offline after 10 minutes without a reading."}
+                : "Default comfort range: 19–23°C and 40–60% humidity. Customize this room in Climate Insights. A sensor is marked offline after 10 minutes without a reading."}
             </span>
           </div>
         </>
@@ -667,16 +669,15 @@ function Settings() {
           </div>
           <h2>Comfort preferences</h2>
           <p>
-            Atmos uses a simple starting range to help you spot changes in your
-            home.
+            Starting ranges are shown below. Customize each room in its Climate Insights section.
           </p>
           <div className="setting-value">
             <span>Temperature</span>
-            <strong>18–26°C</strong>
+            <strong>19–23°C</strong>
           </div>
           <div className="setting-value">
             <span>Humidity</span>
-            <strong>30–60%</strong>
+            <strong>40–60%</strong>
           </div>
           <div className="setting-value">
             <span>Timezone</span>
@@ -753,7 +754,7 @@ function Help() {
         <section className="panel settings-panel">
           <h2>Understanding the status</h2>
           <p>
-            <b>Comfortable:</b> 18–26°C and 30–60% humidity.
+            <b>Comfortable:</b> 19–23°C and 40–60% humidity.
           </p>
           <p>
             <b>Needs attention:</b> temperature or humidity outside that range.

@@ -2126,3 +2126,15 @@ code {
     scroll-behavior: auto !important;
   }
 }
+
+.room-card-group { min-width:0; }
+.room-card-group > .room-card { display:block; }
+.climate-insights { padding:1rem; margin-bottom:1rem; font-size:.8rem; line-height:1.6; }
+.room-card-group .climate-insights { margin-top:.35rem; border:1px solid var(--border); border-radius:1rem; background:color-mix(in srgb,var(--surface) 65%,transparent); backdrop-filter:blur(16px); }
+.climate-insights summary { cursor:pointer; padding:.6rem 0; font-weight:600; }
+.climate-insights p,.climate-insights dl { margin:.5rem 0; }
+.climate-insights dd { margin:0 0 .6rem; opacity:.8; }
+.climate-secondary { opacity:.8; font-variant-numeric:tabular-nums; }
+.climate-preferences { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:.7rem; }
+.climate-preferences label { display:grid; gap:.25rem; }
+.climate-preferences input { min-width:0; width:100%; padding:.5rem; border:1px solid var(--border); border-radius:.5rem; background:var(--surface); color:inherit; }

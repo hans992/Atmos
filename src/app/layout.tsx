@@ -11,6 +11,7 @@ import { Shell } from "@/components/shell";
 import { AppearanceProvider } from "@/components/appearance-provider";
 import { WeatherProvider } from "@/components/weather-provider";
 import "./atmosphere.css";
+import { ComfortProvider } from "@/components/climate-insights";
 export const metadata: Metadata = {
   title: { default: "Atmos — Your home, in balance", template: "%s · Atmos" },
   description:
@@ -49,7 +50,7 @@ export default function RootLayout({
           <AppearanceProvider>
             <WeatherProvider>
               <ClimateProvider>
-                <Shell>{children}</Shell>
+                <ComfortProvider><Shell>{children}</Shell></ComfortProvider>
               </ClimateProvider>
             </WeatherProvider>
           </AppearanceProvider>

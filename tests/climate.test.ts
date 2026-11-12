@@ -47,14 +47,14 @@ test("status prioritizes unavailable data before comfort conditions", () => {
   );
   assert.equal(
     statusOf(
-      { ...room, latest: { ...room.latest!, temperature: 18, humidity: 30 } },
+      { ...room, latest: { ...room.latest!, temperature: 19, humidity: 40 } },
       now,
     ),
     "comfortable",
   );
   assert.equal(
     statusOf(
-      { ...room, latest: { ...room.latest!, temperature: 26, humidity: 60 } },
+      { ...room, latest: { ...room.latest!, temperature: 23, humidity: 60 } },
       now,
     ),
     "comfortable",
@@ -66,7 +66,7 @@ test("stale rooms are excluded from current household averages", () => {
   assert.equal(online.length, 5);
   assert.equal(
     rooms.filter((r) => statusOf(r, now) === "comfortable").length,
-    4,
+    3,
   );
   assert.equal(mean([]), null);
   assert.equal(

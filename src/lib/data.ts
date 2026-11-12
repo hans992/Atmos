@@ -19,11 +19,10 @@ export async function fetchRooms(signal: AbortSignal): Promise<Room[]> {
         .lte("created_at", new Date().toISOString())
         .order("created_at", { ascending: false })
         .order("id", { ascending: false })
-        .limit(1)
-        .abortSignal(signal)
-        .maybeSingle();
+        .limit(400)
+        .abortSignal(signal);
       if (result.error) throw result.error;
-      return { ...device, latest: result.data };
+      return { ...device, latest: result.data?.[0] ?? null, recent: result.data ?? [] };
     }),
   );
 }
