@@ -12,3 +12,4 @@ firmware/include/secrets.h
 *device-credentials*.json
 *device-key*.json
 *device-key*.sql
+supabase/functions/home-insights/logic.js

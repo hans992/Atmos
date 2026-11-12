@@ -2,3 +2,8 @@
 # Device bearer keys are validated by the handler and atomic SQL function.
 # These are deliberately not Supabase Auth JWTs.
 verify_jwt = false
+
+[functions.home-insights]
+# The handler validates the user's JWT with auth.getUser, checks the viewer
+# role, and uses the caller's RLS-scoped client to read climate data.
+verify_jwt = false

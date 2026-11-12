@@ -1,4 +1,6 @@
 "use client";
+import { HomeInsights } from "./home-insights";
+
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
@@ -232,6 +234,7 @@ function Overview({ roomsOnly }: { roomsOnly: boolean }) {
         )}
         {!roomsOnly && <WeatherWidget />}
       </section>
+      {!roomsOnly && <HomeInsights />}
       <div className="section-heading rooms-heading">
         <div className="rooms-title">
           <h2>{roomsOnly ? "All spaces" : "Your rooms"}</h2>
@@ -285,34 +288,6 @@ function Overview({ roomsOnly }: { roomsOnly: boolean }) {
       )}
       {!roomsOnly && (
         <>
-          <div className="comfort-banner">
-            <span className="comfort-leaf">
-              <Leaf size={22} />
-            </span>
-            <div>
-              <strong>
-                {needsAttention.length
-                  ? needsAttention[0].room + " could use a closer look."
-                  : indoors.length
-                    ? "A little peace of mind."
-                    : "Every reading tells a story."}
-              </strong>
-              <p>
-                {needsAttention.length
-                  ? "Its latest reading is outside the indoor comfort range."
-                  : indoors.length
-                    ? "Your online indoor rooms are within the comfort range."
-                    : "Your home’s climate will appear as your sensors connect."}
-              </p>
-            </div>
-            {needsAttention.length ? (
-              <a href={"/room/?id=" + needsAttention[0].id}>
-                View room <ArrowUpRight size={17} />
-              </a>
-            ) : (
-              <ShieldCheck size={23} />
-            )}
-          </div>
           <div className="overview-bottom">
             <HistoryChart />
             <aside className="panel comfort-guide">
@@ -482,7 +457,7 @@ export function RoomDetail() {
             <span>
               {isOutdoor(room.room)
                 ? "Outdoor humidity is shown for context; indoor comfort ranges do not apply. Dew point, absolute humidity, and ventilation guidance are not calculated."
-                : "Default comfort range: 19–23°C and 40–60% humidity. Customize this room in Climate Insights. A sensor is marked offline after 10 minutes without a reading."}
+                : "Default comfort range: 19–23°C and 40–60% humidity. Customize this room under Climate details → How this guidance works. A sensor is marked offline after 10 minutes without a reading."}
             </span>
           </div>
         </>
@@ -669,7 +644,7 @@ function Settings() {
           </div>
           <h2>Comfort preferences</h2>
           <p>
-            Starting ranges are shown below. Customize each room in its Climate Insights section.
+            Starting ranges are shown below. Customize each room under Climate details → How this guidance works.
           </p>
           <div className="setting-value">
             <span>Temperature</span>

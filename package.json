@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1",
+    "build:insights": "tsx scripts/build-insights.ts",
     "build": "tsx scripts/build-worker.ts && next build",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
@@ -15,6 +16,7 @@
   },
   "dependencies": {
     "@fontsource/manrope": "5.2.8",
+    "@google/genai": "3.2.0",
     "@supabase/supabase-js": "2.119.0",
     "lucide-react": "1.69.0",
     "next": "16.4.5",

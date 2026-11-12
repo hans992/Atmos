@@ -1,4 +1,4 @@
-import { ClimateInsights, useRoomComfort } from "./climate-insights";
+import { RoomRecommendation, useRoomComfort } from "./climate-insights";
 import {
   Bath,
   BedDouble,
@@ -73,7 +73,7 @@ export function RoomCard({
   const online = isOnline(room, now);
   const outdoor = isOutdoor(room.room);
   return (
-    <div className="room-card-group"><a
+    <a
       href={`/room/?id=${room.id}`}
       className={`room-card ${!online ? "room-stale" : ""} ${outdoor ? "room-outdoor" : ""}`}
       aria-label={`${room.room}, ${online ? "online" : STATUS_LABELS[statusOf(room, now)]}, view details`}
@@ -112,7 +112,7 @@ export function RoomCard({
         </p>
       </div>
       <div className="room-bottom">
-        <StatusBadge room={room} now={now} />
+        <RoomRecommendation room={room} now={now} />
         {room.latest ? (
           <time
             dateTime={room.latest.created_at}
@@ -124,6 +124,6 @@ export function RoomCard({
           <span>No reading yet</span>
         )}
       </div>
-    </a><ClimateInsights room={room} now={now} compact /></div>
+    </a>
   );
 }

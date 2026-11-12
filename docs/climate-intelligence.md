@@ -1,6 +1,6 @@
 # Indoor Climate Intelligence
 
-All calculations run on existing SHT31 readings; no firmware changes or database migrations are required. Temperature and RH remain the primary measurements. Climate Insights is available below indoor room cards and on room detail pages. Outdoor rooms are excluded from indoor risk guidance.
+All calculations run on existing SHT31 readings; deterministic guidance requires no firmware changes or database migrations. Temperature and RH remain the primary measurements. Room cards show one compact recommendation. Advanced metrics are in the room detail page's closed **Climate details** section; methodology and diagnostics are in **How this guidance works**. Outdoor rooms are excluded from indoor risk guidance. A compact **Home Insights** summarizes the most relevant observation across the home. See [optional Gemini setup](home-insights-ai.md) for the separate, server-only advisory layer and its private cache schema.
 
 ## Formulas and units
 
@@ -32,7 +32,7 @@ These are transparent product heuristics, not a validated mold-growth model. Wal
 
 Fresh outdoor conditions come from the existing weather provider. Both its stale flag and measurement timestamp are checked (less than 60 minutes old, never future). Ventilation requires elevated indoor RH and outdoor vapor content at least 1 g/m³ lower when evaluated at indoor temperature. Normalizing outdoor AH for thermal expansion avoids comparing differently sized air volumes; equivalent to comparing vapor pressure at approximately equal atmospheric pressure. Actual flow, weather hazards, outdoor pollution and building-specific ventilation requirements are not modeled.
 
-For cold rooms with elevated RH, heating guidance explicitly states that heating lowers RH without removing water. Conditions within the configured comfort range are optimal unless recent RH rose by at least five percentage points. Otherwise monitor conditions. Missing outdoor data never produces a confident ventilation recommendation.
+For cold rooms with elevated RH, heating guidance explicitly states that heating lowers RH without removing water. Conditions within the configured comfort range are optimal unless recent RH rose by at least five percentage points. Cold rooms without elevated RH receive gentle heating guidance; warm rooms receive heat-source reduction guidance; dry rooms receive dry-air monitoring guidance. Elevated or rising humidity keeps priority over these comfort suggestions. Missing outdoor data never produces a confident ventilation recommendation.
 
 Defaults: 19–23°C, 40–60% RH, elevated above 60%, high above 70%. Room preferences live in `atmos-comfort-v1` localStorage keyed by device UUID, apply to badges and insights, and do not sync across browsers. Settings are edited in each room's expanded insights. Validation requires 5 ≤ Tmin < Tmax ≤ 35 and 0 ≤ RHmin < RHmax ≤ elevated < high ≤ 100. Local storage failure leaves session preferences usable and reports that they were not persisted. UI remains English, matching Atmos; climate calculations are isolated from React for future localization.
 

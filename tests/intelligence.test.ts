@@ -44,6 +44,9 @@ test("heating, comfort and customized thresholds",()=>{
  assert.equal(assess(sample(65,16),[],null,now).advice,"Heating Recommended");
  assert.match(assess(sample(65,16),[],null,now).reason,/does not remove/);
  assert.equal(assess(sample(),[],null,now).advice,"Climate Is Optimal");
+ assert.equal(assess(sample(50,16),[],null,now).advice,"Heating Recommended");
+ assert.equal(assess(sample(50,27),[],null,now).advice,"Reduce Heat Sources");
+ assert.equal(assess(sample(30,20),[],null,now).advice,"Monitor Dry Air");
  assert.equal(assess(sample(65),[],null,now,{...DEFAULT_COMFORT,maxHumidity:65,elevatedHumidity:65}).advice,"Climate Is Optimal");
  assert.equal(validComfort({...DEFAULT_COMFORT,minTemperature:24}),false);
  assert.equal(validComfort({...DEFAULT_COMFORT,highHumidity:60}),false);

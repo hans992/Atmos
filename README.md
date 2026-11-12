@@ -33,6 +33,8 @@ The deployed app is a private household dashboard. A fresh local checkout can al
 ## What Atmos does
 
 - **Room-by-room monitoring** — temperature in °C, relative humidity, last reading, and sensor status on every card.
+- **Quiet climate intelligence** — one recommendation per room, a compact whole-home insight, and expandable metrics and methodology in room details.
+- **Optional Gemini advice** — server-only, validated AI-assisted wording with cached analysis and deterministic fallback. Disabled by default; see [setup and safeguards](docs/home-insights-ai.md).
 - **Climate history** — temperature and humidity charts for the last 24 hours, 7 days, or 30 days, with CSV export.
 - **Automatic updates** — fresh readings appear every 60 seconds, with additional refreshes on reconnect and return to the app.
 - **Indoor overview** — current home averages and comfort indicators that exclude offline, inactive, and unreported sensors, as well as rooms classified as outdoors.

@@ -66,6 +66,9 @@ export function assess(latest: Sample | null, history: readonly Sample[], outdoo
   else if (latest.temperature < p.minTemperature && latest.humidity > p.elevatedHumidity) { advice="Heating Recommended"; reason="Gentle heating lowers relative humidity but does not remove water vapor. Address moisture sources as well."; }
   else if (latest.temperature >= p.minTemperature && latest.temperature <= p.maxTemperature && latest.humidity >= p.minHumidity && latest.humidity <= p.maxHumidity && (humidityChange === null || humidityChange < 5)) { advice="Climate Is Optimal"; reason="Air measurements are within your configured comfort range."; }
   else if (humidityChange !== null && humidityChange >= 5) reason="Humidity has risen by at least 5 percentage points in the recent observed period.";
+  else if (latest.humidity <= p.elevatedHumidity && latest.temperature < p.minTemperature) { advice="Heating Recommended"; reason="Gentle heating may improve comfort. Heating does not remove moisture; keep monitoring humidity."; }
+  else if (latest.humidity <= p.elevatedHumidity && latest.temperature > p.maxTemperature) { advice="Reduce Heat Sources"; reason="The room is warmer than your preferred range. Reduce heat sources where practical and monitor conditions."; }
+  else if (latest.humidity < p.minHumidity) { advice="Monitor Dry Air"; reason="Humidity is below your preferred range. Monitor the room and review your comfort preferences."; }
   else if (!outside) reason="Fresh outdoor temperature and humidity are unavailable; ventilation benefit cannot be determined.";
   else if (latest.humidity > p.elevatedHumidity) reason="Outdoor air is not sufficiently drier to recommend ventilation for moisture removal.";
   return { current, available, risk, advice, reason, elevatedMinutes, highMinutes, episodes, humidityChange, temperatureChange, moistureChange, correlation, condensationMargin, outdoor: outside, samples: points.length };
