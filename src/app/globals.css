@@ -2144,5 +2144,10 @@ code {
 .home-insight small { color:var(--muted); font-size:.68rem; }
 .home-insight button { color:var(--secondary); background:none; border:0; min-width:44px; min-height:44px; padding:.5rem; cursor:pointer; }
 .home-insight button:disabled { opacity:.4; cursor:default; }
+.insight-status { margin-top:.4rem; font-size:.72rem; color:var(--secondary); }
+.insight-status summary { display:flex; align-items:center; gap:.3rem; width:fit-content; cursor:pointer; }
+.insight-status p { font-size:.75rem; }
+.insight-status dl { display:grid; grid-template-columns:auto 1fr; gap:.3rem .7rem; margin-top:.6rem; }
+.insight-status dd { margin:0; overflow-wrap:anywhere; }
 .climate-insights > summary { padding:0; }
 .climate-insights[open] > summary { margin-bottom:.8rem; }
