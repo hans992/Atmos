@@ -8,6 +8,7 @@ import { choiceText, fallbackChoice, summarizeHome } from "@/lib/home-insights";
 import { cachedChoice, createInsightsClient, FAILURE_LABELS, INVOCATION_LABELS, invocationState, type StoredInsight } from "@/lib/insights-client";
 import { getSupabase } from "@/lib/supabase";
 import type { Sample } from "@/lib/intelligence";
+import { FALLBACK_MESSAGES } from "@/lib/insight-diagnostics";
 
 // Direct access is required for Next.js to inline the production build flag.
 const FEATURE_ENABLED = process.env.NEXT_PUBLIC_CLIMATE_AI_ENABLED === "true";
@@ -78,10 +79,13 @@ export function HomeInsights() {
         <summary><Info size={12} aria-hidden="true" /> AI status</summary>
         <p>{INVOCATION_LABELS[state.reason]}</p>
         {stored.failure && <p>{FAILURE_LABELS[stored.failure]}</p>}
-        {stored.result?.source === "rules" && <p>The server returned rule-based guidance. AI may be disabled, limited, or temporarily unavailable.</p>}
+        {stored.result?.source === "rules" && <p>{stored.result.fallbackReason ? FALLBACK_MESSAGES[stored.result.fallbackReason] : "The server returned rule-based guidance without a diagnostic reason."}</p>}
+        {stored.result?.source === "ai" && !aiChoice && <p>The AI response describes an older or different snapshot. Current rule-based guidance is shown.</p>}
         <dl><dt>Frontend AI flag</dt><dd>{FEATURE_ENABLED ? "Enabled" : "Disabled"}</dd>
           <dt>Session</dt><dd>{session ? "Signed in" : "Signed out"}</dd>
           <dt>Last request</dt><dd>{stored.attemptedAt ? new Date(stored.attemptedAt).toLocaleString() : "Not requested in this session"}</dd>
+          {stored.result?.fallbackReason && <><dt>Server reason</dt><dd><code>{stored.result.fallbackReason}</code></dd></>}
+          {stored.result?.requestId && <><dt>Request ID</dt><dd><code>{stored.result.requestId}</code></dd></>}
           {state.nextAttemptAt && <><dt>{state.reason === "cached" ? "Cache expires" : "Next automatic attempt"}</dt><dd>{new Date(state.nextAttemptAt).toLocaleTimeString()}</dd></>}
         </dl>
       </details>

@@ -72,3 +72,21 @@ Possible skips: disabled build flag; signed-out/demo mode; offline state; sensor
 The frontend does not pre-check `app_metadata.climate_viewer`. The Edge Function verifies it after invocation, and the existing sensor RLS also depends on it. A stale JWT without the claim can therefore indirectly leave the frontend without room data. If access was recently granted and rooms are missing, sign out and sign in again; never remove RLS or grant access through `user_metadata`.
 
 In Firefox Network, enable capture **before** opening Home or reloading, select **All** requests, and filter by `home-insights`. A cached insight may correctly produce no request. A CORS failure can show only `OPTIONS` and prevent `POST`; the allowed origin must be the exact frontend origin without a trailing slash. Do not use a wildcard to work around it. A `401` means the session was rejected, a `403` means access/origin was denied, and a successful `source: rules` response means the endpoint ran but supplied deterministic fallback rather than AI wording.
+
+## Trace an HTTP 200 fallback
+
+Authenticated responses include `fallbackReason` (a fixed code, or `null` for AI) and `requestId`. **AI status** displays these values and the corresponding explanation. Older responses without these fields remain readable. A server AI response whose fingerprint no longer matches the current home is explicitly identified as a different/older snapshot; it is never silently presented as current AI guidance.
+
+The most useful branches are:
+
+- `ai_disabled`: Supabase's `CLIMATE_AI_ENABLED` is not exactly `true`. Vercel's `NEXT_PUBLIC_CLIMATE_AI_ENABLED` only enables the browser side; it cannot enable the server.
+- `api_key_missing`: no server Gemini key is configured.
+- `cache_read_failed`: reservation failed before any Gemini call; logs may include a bounded database error code.
+- `analysis_in_progress`, `cooldown`, `user_daily_budget`, `project_daily_budget`: the atomic database reservation declined the call. These do not reset or bypass any counters.
+- `provider_*`: an upstream API failure, quota, timeout, truncation, blocking or incomplete completion.
+- `response_*`: empty/oversized/invalid JSON, incorrect object fields, unapproved `insightId`, noninteger `variant`, or an index outside that specific insight's variants. Values are never coerced or repaired into passing validation.
+- `cache_write_failed` / `cache_lease_expired`: a valid response could not be persisted. Expired/replaced leases now raise an error instead of silently acknowledging a zero-row update.
+
+Each function instance logs only whether AI is enabled and whether a key is present. Correlated lifecycle events use `component: atmos.home-insights` and the response's `requestId`: `analysis_started`, `cache_reserved`, `gemini_started`, `gemini_completed`, `validation_passed`, `fallback`, and `analysis_completed`. Safe metadata includes fixed reasons, numeric status/token counts, finish reason, duration and cache-hit status. No API keys, access tokens, user IDs, prompts, raw Gemini text, room names or sensor readings are logged.
+
+To verify a real analysis, use a signed-in climate viewer's normal Home Insights request. Confirm `source: ai`, `fallbackReason: null`, the matching request ID's successful validation/completion events, and a persisted private cache choice. An HTTP 200 from Atmos alone does not prove Gemini was called; a successful AI Studio request alone does not establish that Atmos made it. Do not create privileged test sessions, bypass viewer checks, reset budgets or delete cooldown rows to obtain a success.

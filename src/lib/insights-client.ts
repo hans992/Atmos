@@ -1,5 +1,6 @@
 import { CACHE_TTL_MS, MIN_INTERVAL_MS, validateChoice, type HomeSummary } from "./home-insights";
 import type { InsightResult } from "../server/home-insights";
+import { isFallbackReason } from "./insight-diagnostics";
 
 // Transport failures did not produce an analysis. Retry them conservatively,
 // without bypassing the authoritative server's ten-minute/daily AI budgets.
@@ -12,6 +13,9 @@ const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v ===
 
 export function validInsightResult(v: unknown): v is InsightResult {
   if (!object(v) || (v.source !== "ai" && v.source !== "rules") || typeof v.fingerprint !== "string" || v.fingerprint.length > 65536) return false;
+  if (v.fallbackReason != null && !isFallbackReason(v.fallbackReason)) return false;
+  if (v.source === "ai" && v.fallbackReason != null) return false;
+  if (v.requestId !== undefined && (typeof v.requestId !== "string" || !/^[0-9a-f-]{36}$/i.test(v.requestId))) return false;
   if (v.choice !== null && (!object(v.choice) || Object.keys(v.choice).sort().join() !== "insightId,variant" || typeof v.choice.insightId !== "string" || !Number.isInteger(v.choice.variant) || (v.choice.variant as number) < 0)) return false;
   return v.source === "ai" ? v.choice !== null && typeof v.generatedAt === "number" && Number.isFinite(v.generatedAt) : v.generatedAt === null;
 }

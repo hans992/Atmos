@@ -1,6 +1,7 @@
 import { assess, DEFAULT_COMFORT, fresh, type Comfort, type Sample } from "./intelligence";
 import { isOutdoor } from "./room-presentation";
 import type { Room } from "./types";
+import type { FallbackReason } from "./insight-diagnostics";
 
 // Atmos currently ships English copy. Keep the locale contract explicit so a
 // future translation catalog can extend both deterministic and AI-assisted UI.
@@ -78,11 +79,16 @@ export function summarizeHome(rooms: Room[], outdoor: Sample | null, preferences
 export type HomeSummary = ReturnType<typeof summarizeHome>;
 
 export function validateChoice(value: unknown, candidates: Candidate[]): Choice | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return choiceValidationError(value, candidates) === null ? { insightId: (value as Choice).insightId, variant: (value as Choice).variant } : null;
+}
+export function choiceValidationError(value: unknown, candidates: Candidate[]): FallbackReason | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "response_invalid_shape";
   const v = value as Record<string, unknown>;
-  if (Object.keys(v).sort().join(",") !== "insightId,variant" || typeof v.insightId !== "string" || !Number.isInteger(v.variant)) return null;
+  if (Object.keys(v).sort().join(",") !== "insightId,variant") return "response_unexpected_fields";
   const c = candidates.find(c => c.id === v.insightId);
-  return c && typeof v.variant === "number" && v.variant >= 0 && v.variant < c.variants.length ? { insightId: c.id, variant: v.variant } : null;
+  if (typeof v.insightId !== "string" || !c) return "response_unknown_insight";
+  if (typeof v.variant !== "number" || !Number.isInteger(v.variant)) return "response_invalid_variant";
+  return v.variant >= 0 && v.variant < c.variants.length ? null : "response_variant_out_of_range";
 }
 export function choiceText(choice: Choice, candidates: Candidate[]) {
   return candidates.find(c => c.id === choice.insightId)?.variants[choice.variant] ?? null;

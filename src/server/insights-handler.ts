@@ -4,6 +4,7 @@ import { DEFAULT_COMFORT, metrics, validComfort, type Comfort, type Sample } fro
 import { summarizeHome, type HomeSummary } from "../lib/home-insights";
 import { createInsightService, type InsightCache } from "./home-insights";
 import type { Room } from "../lib/types";
+import { InsightFailure, logDiagnostic, parseGeminiResponse, providerFailure } from "./insight-diagnostics";
 
 type Config = { url: string; anonKey: string; serviceKey: string; enabled: boolean; apiKey?: string; model: string; allowedOrigin: string };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -42,6 +43,7 @@ async function readBody(req: Request): Promise<unknown> {
 }
 
 export function createInsightsHandler(config: Config) {
+  logDiagnostic(crypto.randomUUID(), { event: "configuration", aiEnabled: config.enabled, apiKeyPresent: !!config.apiKey });
   const admin = createClient(config.url, config.serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const cache: InsightCache = {
     async reserve(userId, fingerprint) {
@@ -53,11 +55,13 @@ export function createInsightsHandler(config: Config) {
     },
     async complete(userId, lease, choice) {
       const { error } = await admin.rpc("complete_home_insight", { p_user: userId, p_lease: lease, p_choice: choice });
+      if (error?.message === "Insight lease expired") throw new InsightFailure("cache_lease_expired");
       if (error) throw error;
     },
   };
-  const generate = async (home: HomeSummary): Promise<unknown> => {
+  const generate = async (home: HomeSummary, requestId: string): Promise<unknown> => {
     const ai = new GoogleGenAI({ apiKey: config.apiKey!, httpOptions: { timeout: 8000, retryOptions: { attempts: 1 } } });
+    logDiagnostic(requestId, { event: "gemini_started" });
     const response = await ai.models.generateContent({
       model: config.model,
       contents: JSON.stringify({ observations: home.summary, approvedInsights: home.candidates }),
@@ -67,12 +71,10 @@ export function createInsightsHandler(config: Config) {
         responseJsonSchema: { type: "object", additionalProperties: false, required: ["insightId", "variant"], properties: { insightId: { type: "string", enum: home.candidates.map(c => c.id) }, variant: { type: "integer", minimum: 0, maximum: Math.max(...home.candidates.map(c => c.variants.length - 1)) } } },
         maxOutputTokens: 128, temperature: 0.1,
       },
-    });
-    const text = response.text;
-    if (!text || text.length > 1024) throw new Error("Invalid model response");
-    return JSON.parse(text);
+    }).catch(error => { throw providerFailure(error); });
+    return parseGeminiResponse(response, event => logDiagnostic(requestId, event));
   };
-  const analyze = createInsightService(cache, generate);
+  const analyze = createInsightService(cache, generate, Date.now, logDiagnostic);
   return async (req: Request): Promise<Response> => {
     const origin = req.headers.get("origin");
     const headers = { "Content-Type": "application/json", "Cache-Control": "no-store", "Vary": "Origin", ...(origin === config.allowedOrigin ? { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info", "Access-Control-Allow-Methods": "POST, OPTIONS" } : {}) };
@@ -102,7 +104,7 @@ export function createInsightsHandler(config: Config) {
         rooms.push({ ...device, latest: data?.[0] ?? null, recent: data ?? [] });
       }
       const home = summarizeHome(rooms, input.outdoor, input.preferences, now);
-      const result = await analyze(user.id, home, config.enabled && !!config.apiKey);
+      const result = await analyze(user.id, home, config.enabled && !!config.apiKey, { requestId: crypto.randomUUID(), disabledReason: config.enabled ? "api_key_missing" : "ai_disabled" });
       return reply(200, result);
     } catch { return reply(503, { error: "Home analysis unavailable" }); }
   };

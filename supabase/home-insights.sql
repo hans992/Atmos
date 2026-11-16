@@ -49,9 +49,10 @@ begin
   if c.fingerprint = p_fingerprint and c.choice is not null and c.generated_at > t - interval '1 hour' then
     return jsonb_build_object('cached',jsonb_build_object('choice',c.choice,'generatedAt',floor(extract(epoch from c.generated_at)*1000)));
   end if;
-  if c.locked_until > t or c.last_attempt > t - interval '10 minutes' or b.attempts >= 100 or (c.budget_day=d and c.attempts>=24) then
-    return '{}'::jsonb;
-  end if;
+  if c.locked_until > t then return jsonb_build_object('reason','analysis_in_progress'); end if;
+  if c.last_attempt > t - interval '10 minutes' then return jsonb_build_object('reason','cooldown'); end if;
+  if b.attempts >= 100 then return jsonb_build_object('reason','project_daily_budget'); end if;
+  if c.budget_day=d and c.attempts>=24 then return jsonb_build_object('reason','user_daily_budget'); end if;
   token := gen_random_uuid();
   update atmos_private.home_insight_cache set fingerprint=p_fingerprint, choice=null, generated_at=null,
     last_attempt=t, lease=token, locked_until=t+interval '30 seconds',
@@ -71,6 +72,7 @@ begin
   update atmos_private.home_insight_cache
     set choice=p_choice, generated_at=case when p_choice is not null then now() else null end, lease=null, locked_until=null
     where user_id=p_user and lease=p_lease and locked_until > now();
+  if not found then raise exception 'Insight lease expired'; end if;
 end;
 $$;
 revoke all on function public.reserve_home_insight(uuid,text) from public, anon, authenticated;
