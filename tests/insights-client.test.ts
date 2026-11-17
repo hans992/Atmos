@@ -22,6 +22,14 @@ test("manual refresh explains the cooldown and becomes available at expiry witho
  assert.equal(refreshLabel({reason:"requesting"},now),"Analyzing…");
 });
 
+test("server cooldown uses its actual expiry instead of restarting a full browser interval",()=>{
+ const stored={attemptedAt:now,result:{...result,advice:undefined,source:"rules" as const,generatedAt:null,fallbackReason:"cooldown" as const,retryAt:now+2*60_000}};
+ assert.equal(invocationState({...gate,stored,manual:true}).nextAttemptAt,now+2*60_000);
+ assert.equal(invocationState({...gate,stored,now:now+2*60_000}).reason,"ready");
+ assert.equal(invocationState({...gate,stored:{...stored,result:{...stored.result,retryAt:now-1}}}).nextAttemptAt,now+MIN_INTERVAL_MS);
+ assert.equal(validInsightResult({...result,retryAt:now}),false);
+});
+
 test("AI is displayable only for validated generated advice matching current conditions",()=>{
  assert.equal(cachedAdvice({attemptedAt:now,result},home,now)?.text,advice.text);
  assert.equal(cachedAdvice({attemptedAt:now,result:{...result,advice:undefined}},home,now),null);

@@ -93,6 +93,9 @@ test("accepted generated prose is persisted and reused; rejected prose and legac
  assert.equal((await legacy("viewer",home,true)).fallbackReason,"cache_invalid");
  const limited=createInsightService({...cache,reserve:async()=>({reason:"cooldown"})},async()=>{throw Error("must not bypass cooldown");},()=>now);
  assert.equal((await limited("viewer",home,true)).fallbackReason,"cooldown");
+ const retryAt=now+60_000;
+ const timed=createInsightService({...cache,reserve:async()=>({reason:"cooldown",retryAt})},async()=>{throw Error("must not call provider");},()=>now);
+ assert.equal((await timed("viewer",home,true)).retryAt,retryAt);
 });
 
 test("authenticated endpoint sends verified context through the official SDK and persists accepted prose",async()=>{

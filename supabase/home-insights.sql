@@ -50,7 +50,9 @@ begin
     return jsonb_build_object('cached',jsonb_build_object('choice',c.choice,'generatedAt',floor(extract(epoch from c.generated_at)*1000)));
   end if;
   if c.locked_until > t then return jsonb_build_object('reason','analysis_in_progress'); end if;
-  if c.last_attempt > t - interval '10 minutes' then return jsonb_build_object('reason','cooldown'); end if;
+  if c.last_attempt > t - interval '10 minutes' then
+    return jsonb_build_object('reason','cooldown','retryAt',ceil(extract(epoch from (c.last_attempt + interval '10 minutes'))*1000));
+  end if;
   if b.attempts >= 100 then return jsonb_build_object('reason','project_daily_budget'); end if;
   if c.budget_day=d and c.attempts>=24 then return jsonb_build_object('reason','user_daily_budget'); end if;
   token := gen_random_uuid();

@@ -95,4 +95,6 @@ Each function instance logs whether AI is enabled, whether a key is present, and
 
 The refresh control displays its remaining wait and local availability time. Both automatic and manual analysis respect the same ten-minute interval, including after a provider or validation failure. The disabled control is not a broken button and re-enables when eligible; no repeated clicks, cache deletion or budget reset is needed.
 
+Reapply the updated `reserve_home_insight` definition in `supabase/home-insights.sql` when upgrading: cooldown responses now include the server's `retryAt` timestamp. The browser uses that expiry rather than adding another full ten-minute wait after a declined request. Existing definitions without this field remain compatible and retain the conservative ten-minute browser wait. No counters, permissions or rate limits are changed.
+
 To verify a real analysis, use a signed-in climate viewer's normal Home Insights request. Confirm `source: ai`, `fallbackReason: null`, the matching request ID's successful validation/completion events, and a persisted private cache choice. An HTTP 200 from Atmos alone does not prove Gemini was called; a successful AI Studio request alone does not establish that Atmos made it. Do not create privileged test sessions, bypass viewer checks, reset budgets or delete cooldown rows to obtain a success.

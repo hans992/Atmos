@@ -1,15 +1,15 @@
 // Server-only module: imported exclusively by the Edge Function and unit tests.
-import { CACHE_TTL_MS, fallbackChoice, type Choice, type HomeSummary } from "../lib/home-insights";
+import { CACHE_TTL_MS, MIN_INTERVAL_MS, fallbackChoice, type Choice, type HomeSummary } from "../lib/home-insights";
 import { adviceValidationError, validateAdvice, type GeneratedAdvice } from "../lib/generated-advice";
 import { isFallbackReason, type FallbackReason } from "../lib/insight-diagnostics";
 import { InsightFailure, safeErrorCode, type DiagnosticLogger } from "./insight-diagnostics";
 
-export type InsightResult = { choice: Choice | null; advice?: GeneratedAdvice; source: "rules" | "ai"; generatedAt: number | null; fingerprint: string; fallbackReason?: FallbackReason | null; requestId?: string };
+export type InsightResult = { choice: Choice | null; advice?: GeneratedAdvice; source: "rules" | "ai"; generatedAt: number | null; fingerprint: string; fallbackReason?: FallbackReason | null; requestId?: string; retryAt?: number };
 // Retain the existing JSONB cache envelope and RPC. Variant is legacy storage
 // metadata only; generated advice is validated independently and rendered as text.
 export type CachedAdvice = Choice & { advice: GeneratedAdvice };
 export interface InsightCache {
-  reserve(userId: string, fingerprint: string): Promise<{ cached?: { choice: unknown; generatedAt: number }; lease?: string; reason?: string }>;
+  reserve(userId: string, fingerprint: string): Promise<{ cached?: { choice: unknown; generatedAt: number }; lease?: string; reason?: string; retryAt?: number }>;
   complete(userId: string, lease: string, choice: CachedAdvice | null): Promise<void>;
 }
 export function createInsightService(cache: InsightCache, generate: (home: HomeSummary, requestId: string) => Promise<unknown>, clock = Date.now, logger: DiagnosticLogger = () => {}) {
@@ -19,9 +19,10 @@ export function createInsightService(cache: InsightCache, generate: (home: HomeS
     const start = clock();
     const log: DiagnosticLogger = (id, event) => { try { logger(id, event); } catch {} };
     const fallback: InsightResult = { choice: fallbackChoice(home), source: "rules", generatedAt: null, fingerprint: home.fingerprint, requestId };
+    let retryAt: number | undefined;
     function finish(reason: FallbackReason | null, advice?: GeneratedAdvice, generatedAt?: number, cacheHit = false, error?: unknown): InsightResult {
       if (reason) log(requestId, { event: "fallback", reason, errorCode: safeErrorCode(error), status: error instanceof InsightFailure ? error.status : undefined });
-      const result: InsightResult = reason ? { ...fallback, fallbackReason: reason } : { ...fallback, source: "ai", advice: advice!, generatedAt: generatedAt!, fallbackReason: null };
+      const result: InsightResult = reason ? { ...fallback, fallbackReason: reason, ...(retryAt ? { retryAt } : {}) } : { ...fallback, source: "ai", advice: advice!, generatedAt: generatedAt!, fallbackReason: null };
       log(requestId, { event: "analysis_completed", source: result.source, reason: reason ?? undefined, cacheHit, durationMs: clock() - start });
       return result;
     }
@@ -43,6 +44,7 @@ export function createInsightService(cache: InsightCache, generate: (home: HomeS
         return finish("cache_invalid");
       }
       const lease = slot.lease;
+      if (slot.reason === "cooldown" && typeof slot.retryAt === "number" && Number.isFinite(slot.retryAt) && slot.retryAt > clock() && slot.retryAt <= clock() + MIN_INTERVAL_MS) retryAt = slot.retryAt;
       if (!lease) return finish(isFallbackReason(slot.reason) ? slot.reason : "cache_not_reserved");
       log(requestId, { event: "cache_reserved" });
       async function release() { try { await cache.complete(userId, lease!, null); } catch {} }

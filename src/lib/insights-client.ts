@@ -24,6 +24,7 @@ export function validInsightResult(v: unknown): v is InsightResult {
   if (!object(v) || (v.source !== "ai" && v.source !== "rules") || typeof v.fingerprint !== "string" || v.fingerprint.length > 65536) return false;
   if (v.fallbackReason != null && !isFallbackReason(v.fallbackReason)) return false;
   if (v.source === "ai" && v.fallbackReason != null) return false;
+  if (v.retryAt !== undefined && (v.source !== "rules" || v.fallbackReason !== "cooldown" || typeof v.retryAt !== "number" || !Number.isFinite(v.retryAt) || v.retryAt <= 0)) return false;
   if (v.requestId !== undefined && (typeof v.requestId !== "string" || !/^[0-9a-f-]{36}$/i.test(v.requestId))) return false;
   if (v.choice !== null && (!object(v.choice) || Object.keys(v.choice).sort().join() !== "insightId,variant" || typeof v.choice.insightId !== "string" || !Number.isInteger(v.choice.variant) || (v.choice.variant as number) < 0)) return false;
   return v.source === "ai" ? v.choice !== null && isAdviceShape(v.advice) && typeof v.generatedAt === "number" && Number.isFinite(v.generatedAt) : v.generatedAt === null && v.advice === undefined;
@@ -55,7 +56,9 @@ export function invocationState(input: {
   if (input.inFlight) return { reason: "requesting" };
   if (!input.manual && cachedAdvice(stored, input.home, now)) return { reason: "cached", nextAttemptAt: stored.result!.generatedAt! + CACHE_TTL_MS };
   const failed = !stored.result || !!stored.failure;
-  const nextAttemptAt = stored.attemptedAt + (failed ? FAILURE_RETRY_MS : MIN_INTERVAL_MS);
+  const serverRetry = stored.result?.fallbackReason === "cooldown" ? stored.result.retryAt : undefined;
+  const nextAttemptAt = serverRetry !== undefined && serverRetry >= stored.attemptedAt && serverRetry <= stored.attemptedAt + MIN_INTERVAL_MS + 20_000
+    ? serverRetry : stored.attemptedAt + (failed ? FAILURE_RETRY_MS : MIN_INTERVAL_MS);
   if (stored.attemptedAt > 0 && now < nextAttemptAt) return { reason: failed ? "retry-wait" : "cooldown", nextAttemptAt };
   return { reason: "ready" };
 }

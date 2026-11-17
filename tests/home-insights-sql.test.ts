@@ -13,7 +13,7 @@ test("durable AI cache enforces roles, deduplication, expiry, cooldown, leases a
   // The optional setup is safe to reapply.
   await db.exec(await readFile("supabase/home-insights.sql","utf8"));
   const reserve=async(hash=fingerprint)=>{
-   const r=await db.query<{slot:{lease?:string;cached?:{choice:unknown;generatedAt:number}}}>("select public.reserve_home_insight($1,$2) as slot",[user,hash]);return r.rows[0].slot;
+   const r=await db.query<{slot:{lease?:string;reason?:string;retryAt?:number;cached?:{choice:unknown;generatedAt:number}}}>("select public.reserve_home_insight($1,$2) as slot",[user,hash]);return r.rows[0].slot;
   };
   const complete=async(lease:string,choice:unknown)=>db.query("select public.complete_home_insight($1,$2,$3::jsonb)",[user,lease,choice === null ? null : JSON.stringify(choice)]);
   for(const role of ["anon","authenticated"]) {
@@ -30,7 +30,9 @@ test("durable AI cache enforces roles, deduplication, expiry, cooldown, leases a
   const choice={insightId:"comfortable",variant:0,advice:{schemaVersion:2,insightId:"comfortable",room:"room-1",action:"monitor",text:"Bedroom conditions look comfortable; keep monitoring your usual routine."}};
   await complete(first.lease!,choice);
   assert.deepEqual((await reserve()).cached?.choice,choice);
-  assert.deepEqual(await reserve(changed),{reason:"cooldown"},"meaningful events cannot bypass cooldown");
+  const cooldown=await reserve(changed);
+  assert.equal(cooldown.reason,"cooldown","meaningful events cannot bypass cooldown");
+  assert.ok(cooldown.retryAt!>Date.now()+9*60_000 && cooldown.retryAt!<=Date.now()+10*60_000);
   await db.exec("update atmos_private.home_insight_cache set last_attempt=now()-interval '11 minutes'");
   const next=await reserve(changed);assert.ok(next.lease);
   await assert.rejects(complete(first.lease!,choice),/Insight lease expired/);
