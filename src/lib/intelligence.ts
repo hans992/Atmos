@@ -71,5 +71,5 @@ export function assess(latest: Sample | null, history: readonly Sample[], outdoo
   else if (latest.humidity < p.minHumidity) { advice="Monitor Dry Air"; reason="Humidity is below your preferred range. Monitor the room and review your comfort preferences."; }
   else if (!outside) reason="Fresh outdoor temperature and humidity are unavailable; ventilation benefit cannot be determined.";
   else if (latest.humidity > p.elevatedHumidity) reason="Outdoor air is not sufficiently drier to recommend ventilation for moisture removal.";
-  return { current, available, risk, advice, reason, elevatedMinutes, highMinutes, episodes, humidityChange, temperatureChange, moistureChange, correlation, condensationMargin, outdoor: outside, samples: points.length };
+  return { current, available, risk, advice, reason, elevatedMinutes, highMinutes, episodes, humidityChange, temperatureChange, moistureChange, correlation, condensationMargin, outdoor: outside, outdoorEquivalent, moistureDifference: current && outdoorEquivalent !== null ? current.absoluteHumidity - outdoorEquivalent : null, samples: points.length };
 }

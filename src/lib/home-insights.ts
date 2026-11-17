@@ -1,4 +1,4 @@
-import { assess, DEFAULT_COMFORT, fresh, type Comfort, type Sample } from "./intelligence";
+import { assess, DEFAULT_COMFORT, fresh, metrics, validComfort, type Comfort, type Sample } from "./intelligence";
 import { isOutdoor } from "./room-presentation";
 import type { Room } from "./types";
 import type { FallbackReason } from "./insight-diagnostics";
@@ -17,14 +17,21 @@ const familiarNames = /^(living room|bedroom|kitchen|home office|bathroom|nurser
 export function summarizeHome(rooms: Room[], outdoor: Sample | null, preferences: Record<string, Comfort>, now: number) {
   const indoor = [...rooms].filter(r => !isOutdoor(r.room)).sort((a,b) => a.id.localeCompare(b.id));
   const observations = indoor.map((r, index) => {
-    const p = preferences[r.id] ?? DEFAULT_COMFORT;
+    const requested = preferences[r.id];
+    const p = requested && validComfort(requested) ? requested : DEFAULT_COMFORT;
     const a = assess(r.latest, r.recent ?? [], outdoor, now, p, r.active);
     return {
       // Custom labels can contain personal names. Only standard room types leave Atmos.
       name: familiarNames.test(r.room) ? r.room : `Room ${index + 1}`,
+      ref: `room-${index + 1}`,
       available: a.available,
       reading: r.latest ? { temperature: r.latest.temperature, humidity: r.latest.humidity, timestamp: r.latest.created_at } : null,
       absoluteHumidity: round(a.current?.absoluteHumidity), dewPoint: round(a.current?.dewPoint),
+      outdoorAbsoluteHumidityAtIndoorTemperature: round(a.outdoorEquivalent),
+      absoluteHumidityDifference: round(a.moistureDifference),
+      ventilationSuitable: a.available && a.advice === "Ventilate Now",
+      cold: a.available && r.latest!.temperature < p.minTemperature,
+      humid: a.available && r.latest!.humidity > p.elevatedHumidity,
       risk: a.risk, recommendation: a.advice, limitation: a.reason,
       elevatedMinutes: Math.floor(a.elevatedMinutes), highMinutes: Math.floor(a.highMinutes),
       trend: { temperature: round(a.temperatureChange), humidity: round(a.humidityChange), moisture: round(a.moistureChange) },
@@ -63,13 +70,14 @@ export function summarizeHome(rooms: Room[], outdoor: Sample | null, preferences
   const outside = fresh(outdoor, now, CACHE_TTL_MS) ? outdoor : null;
   const summary = {
     locale: INSIGHTS_LOCALE, rooms: observations,
-    outdoor: outside ? { ...outside, source: "weather estimate", fresh: true } : { fresh: false },
+    outdoor: outside ? { ...outside, absoluteHumidity: round(metrics(outside.temperature, outside.humidity)?.absoluteHumidity), source: "weather estimate", fresh: true } : { fresh: false },
     limitations: ["Air readings only; wall temperatures are not measured.", "Estimated mold risk is not confirmed mold.", "Heating does not remove moisture.", "Ventilation benefit is conditional; duration is not prescribed.", "Missing history cannot establish long-term safety."],
   };
   // Timestamp churn is not an environmental event. Threshold crossings, missing
   // sensors, substantial changes, trends and exposure durations are events.
-  const fingerprint = JSON.stringify({ version: 1, locale: INSIGHTS_LOCALE, rooms: observations.map(r => ({
+  const fingerprint = JSON.stringify({ version: 2, locale: INSIGHTS_LOCALE, rooms: observations.map(r => ({
     name: r.name, available: r.available, risk: r.risk, advice: r.recommendation, comfort: r.comfort,
+    cold: r.cold, humid: r.humid, ventilationSuitable: r.ventilationSuitable,
     t: bucket(r.reading?.temperature ?? null, 2), h: bucket(r.reading?.humidity ?? null, 5),
     duration: bucket(r.elevatedMinutes, 30), high: bucket(r.highMinutes, 30),
     trend: (r.trend.humidity ?? 0) >= 5 ? "rising" : (r.trend.moisture ?? 0) < -0.5 ? "drying" : "steady",

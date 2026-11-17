@@ -2144,6 +2144,13 @@ code {
 .home-insight small { color:var(--muted); font-size:.68rem; }
 .home-insight button { color:var(--secondary); background:none; border:0; min-width:44px; min-height:44px; padding:.5rem; cursor:pointer; }
 .home-insight button:disabled { opacity:.4; cursor:default; }
+.insight-refresh { display:flex; flex-direction:column; align-items:center; flex-shrink:0; max-width:12rem; text-align:center; }
+.insight-refresh button { display:flex; align-items:center; gap:.4rem; font-size:.75rem; }
+.insight-refresh button:disabled { opacity:.7; }
+@media (max-width:600px) {
+  .home-insight { flex-wrap:wrap; }
+  .home-insight > .insight-refresh { flex-basis:100%; max-width:none; align-items:flex-end; text-align:right; }
+}
 .insight-status { margin-top:.4rem; font-size:.72rem; color:var(--secondary); }
 .insight-status summary { display:flex; align-items:center; gap:.3rem; width:fit-content; cursor:pointer; }
 .insight-status p { font-size:.75rem; }

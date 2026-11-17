@@ -12,6 +12,8 @@ function room(humidity=50, temperature=20) {
  return {...r,room:"Bedroom",latest:{...r.latest!,humidity,temperature,created_at:new Date(now).toISOString()},recent:[]};
 }
 const home = () => summarizeHome([room()],null,{},now);
+const generated = { schemaVersion: 2 as const, insightId: "comfortable", room: "room-1", action: "monitor" as const, text: "Bedroom conditions look comfortable; keep monitoring with your usual routine." };
+const cached = { insightId: "comfortable", variant: 0, advice: generated };
 test("strict model schema rejects extra text, unknown IDs, wrong types and out-of-range variants",()=>{
  const h=home();
  assert.deepEqual(validateChoice({insightId:"comfortable",variant:0},h.candidates),{insightId:"comfortable",variant:0});
@@ -52,8 +54,8 @@ test("meaningful events invalidate cache while timestamp churn does not; payload
 });
 test("cache reuse, disabled feature, invalid output, exceptions and storage failures all preserve safe behavior",async()=>{
  const h=home();let calls=0;let completions=0;
- const generate=async()=>{calls++;return {insightId:"comfortable",variant:1};};
- const cache:InsightCache={reserve:async()=>({cached:{choice:{insightId:"comfortable",variant:0},generatedAt:now}}),complete:async()=>{completions++;}};
+ const generate=async()=>{calls++;return generated;};
+ const cache:InsightCache={reserve:async()=>({cached:{choice:cached,generatedAt:now}}),complete:async()=>{completions++;}};
  assert.equal((await createInsightService(cache,generate,()=>now)("a",h,true)).source,"ai"); assert.equal(calls,0);
  assert.equal((await createInsightService(cache,generate,()=>now)("a",h,false)).source,"rules");assert.equal(calls,0);
  const blocked={...cache,reserve:async()=>({})};
@@ -66,12 +68,12 @@ test("cache reuse, disabled feature, invalid output, exceptions and storage fail
   assert.equal(result.source,"rules");assert.deepEqual(result.choice,fallbackChoice(h));
  }
  assert.equal(completions,2);
- const expired={...cache,reserve:async()=>({cached:{choice:{insightId:"comfortable",variant:0},generatedAt:now-CACHE_TTL_MS}})};
+ const expired={...cache,reserve:async()=>({cached:{choice:cached,generatedAt:now-CACHE_TTL_MS}})};
  assert.equal((await createInsightService(expired,generate,()=>now)("a",h,true)).source,"rules");
 });
 test("simultaneous analysis requests share one generation and persist one result",async()=>{
  let calls=0;let completes=0;
- const analyze=createInsightService({reserve:async()=>({lease:"token"}),complete:async()=>{completes++;}},async()=>{calls++;await new Promise(r=>setTimeout(r,10));return {insightId:"comfortable",variant:1};},()=>now);
+ const analyze=createInsightService({reserve:async()=>({lease:"token"}),complete:async()=>{completes++;}},async()=>{calls++;await new Promise(r=>setTimeout(r,10));return generated;},()=>now);
  const results=await Promise.all(Array.from({length:10},()=>analyze("same-user",home(),true)));
  assert.equal(calls,1);assert.equal(completes,1);assert.ok(results.every(r=>r.source==="ai"));
 });

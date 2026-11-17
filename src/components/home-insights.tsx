@@ -5,7 +5,7 @@ import { useClimate } from "./climate-provider";
 import { useWeather } from "./weather-provider";
 import { useComfortPreferences } from "./climate-insights";
 import { choiceText, fallbackChoice, summarizeHome } from "@/lib/home-insights";
-import { cachedChoice, createInsightsClient, FAILURE_LABELS, INVOCATION_LABELS, invocationState, type StoredInsight } from "@/lib/insights-client";
+import { cachedAdvice, createInsightsClient, FAILURE_LABELS, INVOCATION_LABELS, invocationState, refreshLabel, type StoredInsight } from "@/lib/insights-client";
 import { getSupabase } from "@/lib/supabase";
 import type { Sample } from "@/lib/intelligence";
 import { FALLBACK_MESSAGES } from "@/lib/insight-diagnostics";
@@ -68,19 +68,19 @@ export function HomeInsights() {
   }, [key, home.fingerprint, now, manual, demo, connected, error, refreshed]);
 
   const usable = FEATURE_ENABLED && !!session && !demo && connected && !error;
-  const aiChoice = usable ? cachedChoice(stored, home, now) : null;
-  const choice = aiChoice ?? fallbackChoice(home);
-  const text = choice && choiceText(choice, home.candidates);
+  const aiAdvice = usable ? cachedAdvice(stored, home, now) : null;
+  const choice = fallbackChoice(home);
+  const text = aiAdvice?.text ?? (choice && choiceText(choice, home.candidates));
   if (!text) return null;
   return <section className="panel home-insight" aria-label="Home Insights">
     <Leaf size={22} aria-hidden="true" />
-    <div><small>Home Insights{aiChoice ? " · AI-assisted" : ""}</small><p>{text}</p>
+    <div><small>Home Insights{aiAdvice ? " · AI-assisted" : ""}</small><p>{text}</p>
       <details className="insight-status">
         <summary><Info size={12} aria-hidden="true" /> AI status</summary>
         <p>{INVOCATION_LABELS[state.reason]}</p>
         {stored.failure && <p>{FAILURE_LABELS[stored.failure]}</p>}
         {stored.result?.source === "rules" && <p>{stored.result.fallbackReason ? FALLBACK_MESSAGES[stored.result.fallbackReason] : "The server returned rule-based guidance without a diagnostic reason."}</p>}
-        {stored.result?.source === "ai" && !aiChoice && <p>The AI response describes an older or different snapshot. Current rule-based guidance is shown.</p>}
+        {stored.result?.source === "ai" && !aiAdvice && <p>The AI response no longer matches the current conditions or advice contract. Current rule-based guidance is shown.</p>}
         <dl><dt>Frontend AI flag</dt><dd>{FEATURE_ENABLED ? "Enabled" : "Disabled"}</dd>
           <dt>Session</dt><dd>{session ? "Signed in" : "Signed out"}</dd>
           <dt>Last request</dt><dd>{stored.attemptedAt ? new Date(stored.attemptedAt).toLocaleString() : "Not requested in this session"}</dd>
@@ -90,6 +90,9 @@ export function HomeInsights() {
         </dl>
       </details>
     </div>
-    {FEATURE_ENABLED && !!session && !demo && <button type="button" aria-label="Refresh Home Insights" title={manualState.reason === "ready" ? "Request home analysis" : INVOCATION_LABELS[manualState.reason]} disabled={manualState.reason !== "ready"} onClick={() => setManual(n => n + 1)}><RefreshCw size={16} aria-hidden="true" /></button>}
+    {FEATURE_ENABLED && !!session && !demo && <span className="insight-refresh">
+      <button type="button" aria-label="Refresh Home Insights" aria-describedby="home-insight-refresh-hint" title={manualState.reason === "ready" ? "Request home analysis" : INVOCATION_LABELS[manualState.reason]} disabled={manualState.reason !== "ready"} onClick={() => setManual(n => n + 1)}><RefreshCw size={16} aria-hidden="true" /><span>{refreshLabel(manualState, now)}</span></button>
+      <small id="home-insight-refresh-hint">{manualState.nextAttemptAt ? `Available at ${new Date(manualState.nextAttemptAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : manualState.reason !== "ready" ? INVOCATION_LABELS[manualState.reason] : "Request home analysis"}</small>
+    </span>}
   </section>;
 }

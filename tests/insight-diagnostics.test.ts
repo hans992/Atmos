@@ -6,8 +6,10 @@ import { InsightFailure, logDiagnostic, parseGeminiResponse, providerFailure, ty
 import { demoRooms } from "../src/lib/demo";
 
 const now=Date.parse("2026-11-16T12:00:00Z");
-const home=summarizeHome(demoRooms(now),null,{},now);
+const demo=demoRooms(now)[0];
+const home=summarizeHome([{...demo,room:"Bedroom",latest:{...demo.latest!,temperature:20,humidity:50},recent:[]}],null,{},now);
 const choice={insightId:home.candidates[0].id,variant:0};
+const advice={schemaVersion:2 as const,insightId:"comfortable",room:"room-1",action:"monitor" as const,text:"Bedroom conditions look comfortable; keep monitoring your usual routine."};
 const context={requestId:"00000000-0000-4000-8000-000000000001"};
 test("Gemini parser accepts valid structured output and distinguishes truncation, blocking and invalid JSON",()=>{
  const events:DiagnosticEvent[]=[];
@@ -31,9 +33,9 @@ test("strict insight and per-candidate variant validation gives precise rejectio
 test("full analysis lifecycle distinguishes every fallback stage and acknowledges a valid persisted choice",async()=>{
  const events:DiagnosticEvent[]=[];let saved:unknown;
  const cache:InsightCache={reserve:async()=>({lease:"lease"}),complete:async(_u,_l,c)=>{saved=c;}};
- const analyze=createInsightService(cache,async()=>choice,()=>now,(_id,e)=>events.push(e));
+ const analyze=createInsightService(cache,async()=>advice,()=>now,(_id,e)=>events.push(e));
  const ai=await analyze("user",home,true,context);
- assert.equal(ai.source,"ai");assert.equal(ai.fallbackReason,null);assert.deepEqual(saved,choice);
+ assert.equal(ai.source,"ai");assert.equal(ai.fallbackReason,null);assert.deepEqual(saved,{...choice,advice});
  assert.deepEqual(events.map(e=>e.event),["analysis_started","cache_reserved","validation_passed","analysis_completed"]);
  assert.equal((await analyze("user",home,false,context)).fallbackReason,"ai_disabled");
  assert.equal((await analyze("user",home,false,{...context,disabledReason:"api_key_missing"})).fallbackReason,"api_key_missing");
@@ -43,19 +45,22 @@ test("full analysis lifecycle distinguishes every fallback stage and acknowledge
  }
  const brokenRead=createInsightService({...cache,reserve:async()=>{throw {code:"42501",message:"secret"};}},async()=>choice);
  assert.equal((await brokenRead("user",home,true,context)).fallbackReason,"cache_read_failed");
- const brokenWrite=createInsightService({...cache,complete:async()=>{throw Error("write failed");}},async()=>choice);
+ const brokenWrite=createInsightService({...cache,complete:async()=>{throw Error("write failed");}},async()=>advice);
  assert.equal((await brokenWrite("user",home,true,context)).fallbackReason,"cache_write_failed");
  const invalid=createInsightService(cache,async()=>({...choice,variant:99}));
- assert.equal((await invalid("user",home,true,context)).fallbackReason,"response_variant_out_of_range");
+ assert.equal((await invalid("user",home,true,context)).fallbackReason,"response_invalid_advice_schema");
  const quota=createInsightService(cache,async()=>{throw providerFailure({status:429,message:"secret"});});
  assert.equal((await quota("user",home,true,context)).fallbackReason,"provider_rate_limited");
 });
 test("diagnostics exclude response content, credentials and arbitrary provider error messages",()=>{
  const original=console.info;const lines:string[]=[];console.info=(line:string)=>{lines.push(line);};
  try {
-  logDiagnostic(context.requestId,{event:"fallback",reason:"provider_error",errorCode:"secret-api-key",finishReason:"secret prompt",status:500});
+  logDiagnostic(context.requestId,{event:"fallback",reason:"provider_error",errorCode:"secret-api-key",finishReason:"secret prompt",model:"secret-api-key",status:500});
+  logDiagnostic(context.requestId,{event:"configuration",model:"gemini-3.5-flash-lite"});
  } finally {console.info=original;}
  assert.doesNotMatch(lines.join(),/secret|prompt|api-key/);
  assert.match(lines[0],/provider_error/);
  assert.equal(providerFailure({status:403,message:"secret"}).message,"provider_auth_error");
+ assert.equal(providerFailure({status:404,message:"secret"}).reason,"provider_not_found");
+ assert.match(lines[1],/gemini-3.5-flash-lite/);
 });

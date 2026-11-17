@@ -1,4 +1,5 @@
-import { CACHE_TTL_MS, MIN_INTERVAL_MS, validateChoice, type HomeSummary } from "./home-insights";
+import { CACHE_TTL_MS, MIN_INTERVAL_MS, type HomeSummary } from "./home-insights";
+import { isAdviceShape, validateAdvice } from "./generated-advice";
 import type { InsightResult } from "../server/home-insights";
 import { isFallbackReason } from "./insight-diagnostics";
 
@@ -9,6 +10,14 @@ export type Failure = "network" | "unauthorized" | "forbidden" | "unavailable" |
 export type StoredInsight = { attemptedAt: number; result?: InsightResult; failure?: Failure };
 export type InvocationReason = "disabled" | "signed-out" | "demo" | "offline" | "data-error" | "waiting-readings" | "no-insight" | "requesting" | "cached" | "cooldown" | "retry-wait" | "ready";
 export type InvocationState = { reason: InvocationReason; nextAttemptAt?: number };
+export function refreshLabel(state: InvocationState, now: number): string {
+  if (state.reason === "requesting") return "Analyzing…";
+  if (state.nextAttemptAt && state.nextAttemptAt > now) {
+    const minutes = Math.ceil((state.nextAttemptAt - now) / 60_000);
+    return minutes === 1 ? "Refresh in <1 min" : `Refresh in ${minutes} min`;
+  }
+  return state.reason === "ready" ? "Refresh" : "Refresh unavailable";
+}
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 
 export function validInsightResult(v: unknown): v is InsightResult {
@@ -17,7 +26,7 @@ export function validInsightResult(v: unknown): v is InsightResult {
   if (v.source === "ai" && v.fallbackReason != null) return false;
   if (v.requestId !== undefined && (typeof v.requestId !== "string" || !/^[0-9a-f-]{36}$/i.test(v.requestId))) return false;
   if (v.choice !== null && (!object(v.choice) || Object.keys(v.choice).sort().join() !== "insightId,variant" || typeof v.choice.insightId !== "string" || !Number.isInteger(v.choice.variant) || (v.choice.variant as number) < 0)) return false;
-  return v.source === "ai" ? v.choice !== null && typeof v.generatedAt === "number" && Number.isFinite(v.generatedAt) : v.generatedAt === null;
+  return v.source === "ai" ? v.choice !== null && isAdviceShape(v.advice) && typeof v.generatedAt === "number" && Number.isFinite(v.generatedAt) : v.generatedAt === null && v.advice === undefined;
 }
 export function readStoredInsight(v: unknown, now: number): StoredInsight {
   if (!object(v) || typeof v.attemptedAt !== "number" || !Number.isFinite(v.attemptedAt) || v.attemptedAt < 0 || v.attemptedAt > now) return { attemptedAt: 0 };
@@ -26,9 +35,9 @@ export function readStoredInsight(v: unknown, now: number): StoredInsight {
   // Legacy v1 entries with no result were failed/interrupted calls, not AI analyses.
   return { attemptedAt: v.attemptedAt, result, failure };
 }
-export function cachedChoice(stored: StoredInsight, home: HomeSummary, now: number) {
+export function cachedAdvice(stored: StoredInsight, home: HomeSummary, now: number) {
   const r = stored.result;
-  return r?.source === "ai" && r.fingerprint === home.fingerprint && r.generatedAt !== null && now >= r.generatedAt && now - r.generatedAt < CACHE_TTL_MS ? validateChoice(r.choice, home.candidates) : null;
+  return r?.source === "ai" && r.fingerprint === home.fingerprint && r.generatedAt !== null && now >= r.generatedAt && now - r.generatedAt < CACHE_TTL_MS ? validateAdvice(r.advice, home) : null;
 }
 export function invocationState(input: {
   featureEnabled: boolean; signedIn: boolean; demo: boolean; connected: boolean;
@@ -44,7 +53,7 @@ export function invocationState(input: {
   if (!input.readingsReady || !now) return { reason: "waiting-readings" };
   if (!input.home.candidates.length) return { reason: "no-insight" };
   if (input.inFlight) return { reason: "requesting" };
-  if (!input.manual && cachedChoice(stored, input.home, now)) return { reason: "cached", nextAttemptAt: stored.result!.generatedAt! + CACHE_TTL_MS };
+  if (!input.manual && cachedAdvice(stored, input.home, now)) return { reason: "cached", nextAttemptAt: stored.result!.generatedAt! + CACHE_TTL_MS };
   const failed = !stored.result || !!stored.failure;
   const nextAttemptAt = stored.attemptedAt + (failed ? FAILURE_RETRY_MS : MIN_INTERVAL_MS);
   if (stored.attemptedAt > 0 && now < nextAttemptAt) return { reason: failed ? "retry-wait" : "cooldown", nextAttemptAt };
@@ -60,7 +69,7 @@ export const INVOCATION_LABELS: Record<InvocationReason, string> = {
   "no-insight": "No indoor observation is available to analyze.",
   requesting: "Requesting a home analysis…",
   cached: "Using a matching cached AI insight (up to one hour).",
-  cooldown: "The last request completed. Automatic analysis waits at least ten minutes between requests.",
+  cooldown: "The last request completed. Automatic and manual analysis both wait at least ten minutes between requests, including after an AI error.",
   "retry-wait": "The last request did not complete successfully. Retrying after a one-minute pause.",
   ready: "Ready to request an analysis.",
 };

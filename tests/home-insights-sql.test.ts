@@ -27,7 +27,7 @@ test("durable AI cache enforces roles, deduplication, expiry, cooldown, leases a
   assert.deepEqual(await reserve(),{reason:"analysis_in_progress"});
   await assert.rejects(complete("00000000-0000-4000-8000-000000000099",{insightId:"comfortable",variant:0}),/Insight lease expired/);
   assert.deepEqual(await reserve(),{reason:"analysis_in_progress"},"wrong lease cannot publish a result");
-  const choice={insightId:"comfortable",variant:0};
+  const choice={insightId:"comfortable",variant:0,advice:{schemaVersion:2,insightId:"comfortable",room:"room-1",action:"monitor",text:"Bedroom conditions look comfortable; keep monitoring your usual routine."}};
   await complete(first.lease!,choice);
   assert.deepEqual((await reserve()).cached?.choice,choice);
   assert.deepEqual(await reserve(changed),{reason:"cooldown"},"meaningful events cannot bypass cooldown");
