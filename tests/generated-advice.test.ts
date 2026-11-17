@@ -5,6 +5,7 @@ import { adviceOptions, adviceValidationError, validateAdvice, type GeneratedAdv
 import { createInsightService, type InsightCache } from "../src/server/home-insights";
 import { demoRooms } from "../src/lib/demo";
 import { metrics } from "../src/lib/intelligence";
+import { createInsightsHandler } from "../src/server/insights-handler";
 
 const now=Date.parse("2026-11-17T06:30:00Z");
 const sample=(temperature:number,humidity:number,age=0)=>({temperature,humidity,created_at:new Date(now-age).toISOString()});
@@ -66,6 +67,10 @@ test("strict schema, concise original prose and action consistency reject unsafe
   "Bedroom is cool; avoid ventilation, then heating may help with drier outdoor air.",
   "Bedroom is cool; drier outdoor air may help with ventilation, then heating may remove moisture.",
   "Bedroom is cool. Drier outdoor air may help. Ventilate then heat.",
+  "Bedroom has low humidity; drier outdoor air may help with ventilation then heating for comfort.",
+  "Bedroom is hot; drier outdoor air may help with ventilation then heating for comfort.",
+  "Drier outdoor air may help Bedroom humidity; ventilate, then turn heating off for comfort.",
+  "Every room is comfortable; drier outdoor air may help Bedroom ventilation then heating for comfort.",
   "Bedroom "+"humid ".repeat(40)+"air.",
   "Bedroom <script>alert('x')</script>.",
   "Bedroom. https://example.com/",
@@ -88,4 +93,40 @@ test("accepted generated prose is persisted and reused; rejected prose and legac
  assert.equal((await legacy("viewer",home,true)).fallbackReason,"cache_invalid");
  const limited=createInsightService({...cache,reserve:async()=>({reason:"cooldown"})},async()=>{throw Error("must not bypass cooldown");},()=>now);
  assert.equal((await limited("viewer",home,true)).fallbackReason,"cooldown");
+});
+
+test("authenticated endpoint sends verified context through the official SDK and persists accepted prose",async()=>{
+ const previous=globalThis.fetch;let providerCalls=0;let persisted:unknown;
+ const r=room();r.latest.created_at=new Date().toISOString();
+ globalThis.fetch=async(input,init)=>{
+  const request=new Request(input,init);const url=new URL(request.url);
+  if(url.hostname==="generativelanguage.googleapis.com") {
+   providerCalls++;
+   const body=await request.json();
+   const prompt=JSON.parse(body.contents[0].parts[0].text);
+   assert.ok(prompt.observations.rooms[0].absoluteHumidityDifference>1);
+   assert.equal(prompt.allowedOptions[0].action,"ventilate_then_heat");
+   assert.doesNotMatch(JSON.stringify(prompt),/device_id|viewer-token|private-key|@example/);
+   assert.equal(body.generationConfig.responseJsonSchema.additionalProperties,false);
+   assert.equal(body.generationConfig.maxOutputTokens,256);
+   return Response.json({candidates:[{content:{role:"model",parts:[{text:JSON.stringify(advice)}]},finishReason:"STOP"}],usageMetadata:{candidatesTokenCount:80}});
+  }
+  if(url.pathname==="/auth/v1/user") return Response.json({id:r.id,app_metadata:{climate_viewer:true}});
+  if(url.pathname.endsWith("/reserve_home_insight")) {
+   assert.equal(request.headers.get("authorization"),"Bearer private-key");
+   return Response.json({lease:"lease"});
+  }
+  if(url.pathname.endsWith("/complete_home_insight")) {persisted=(await request.json()).p_choice;return Response.json(null);}
+  assert.equal(request.headers.get("authorization"),"Bearer viewer-token");
+  if(url.pathname.endsWith("/devices")) return Response.json([{id:r.id,name:r.name,room:r.room,active:true,created_at:r.created_at}]);
+  if(url.pathname.endsWith("/sensor_readings")) return Response.json([r.latest]);
+  throw Error("Unexpected request");
+ };
+ try {
+  const handle=createInsightsHandler({url:"https://example.supabase.co",anonKey:"public-key",serviceKey:"private-key",apiKey:"test-provider-key",model:"gemini-3.5-flash-lite",enabled:true,allowedOrigin:"https://atmos.test"});
+  const response=await handle(new Request("https://api.test",{method:"POST",headers:{authorization:"Bearer viewer-token",origin:"https://atmos.test"},body:JSON.stringify({locale:"en",outdoor:{...outdoor,created_at:r.latest.created_at},preferences:{}})}));
+  const result=await response.json();
+  assert.equal(response.status,200);assert.equal(result.source,"ai");assert.equal(result.advice.text,advice.text);
+  assert.equal(providerCalls,1);assert.deepEqual(persisted,{insightId:"humidity",variant:0,advice});
+ } finally {globalThis.fetch=previous;}
 });

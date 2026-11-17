@@ -58,6 +58,11 @@ export function adviceValidationError(value: unknown, home: HomeSummary): Fallba
   // heating limitation is handled explicitly rather than accepting arbitrary negation.
   const checked = prose.replace(/(?:heating|heat) (?:does not|doesn’t|doesn't|cannot|can't) remove (?:moisture|water vapor|water vapour)/g, "heating limitation");
   if (/\b(no|not|don’t|don't|cannot|can't|avoid|stop|without|instead|despite|although|but)\b/.test(checked)) return "response_action_mismatch";
+  if (/\b(turn|switch|shut)\b.{0,20}\boff\b|\b(close|shut)\b.{0,20}\bwindows?\b/.test(prose)) return "response_action_mismatch";
+  if (home.summary.rooms.some(r => r.ref !== option.room && r.name.toLowerCase() !== option.name.toLowerCase() && text.toLowerCase().includes(r.name.toLowerCase()))) return "response_ungrounded_advice";
+  if (/\b(all|every|entire|whole)\b.{0,20}\b(rooms?|home|house)\b/.test(prose)) return "response_ungrounded_advice";
+  if (option.humid && /\b(dry air|low humidity|humidity is low|humidity is normal)\b/.test(prose)) return "response_ungrounded_advice";
+  if (option.cold && /\b(room|air) (?:is|feels|seems|stays|remains) (?:too )?(?:warm|hot)\b/.test(prose)) return "response_ungrounded_advice";
   const ventilating = /\b(ventilat\w*|airing|air out|open\w* (?:the |your )?windows?)\b/.test(prose);
   const heating = /\b(heat\w*|warm\w*)\b/.test(prose);
   const sourceCheck = /\b(check|look|review|address|inspect)\b.{0,45}\b(moisture|sources?)\b/.test(prose);
@@ -67,7 +72,7 @@ export function adviceValidationError(value: unknown, home: HomeSummary): Fallba
   if (claimsOutdoor && (!option.drierOutside || !drier)) return "response_ungrounded_advice";
   if (ventilating !== ["ventilate", "ventilate_then_heat"].includes(option.action)) return "response_action_mismatch";
   if (ventilating && (!conditional || !drier || !home.summary.outdoor.fresh)) return "response_ungrounded_advice";
-  if (option.action === "ventilate_then_heat" && (!heating || !/\b(then|after|follow\w*)\b/.test(prose))) return "response_action_mismatch";
+  if (option.action === "ventilate_then_heat" && (!heating || !/\b(then|after|follow\w*)\b/.test(prose) || !/\bcomfort\b/.test(prose))) return "response_action_mismatch";
   if (heating && !["ventilate_then_heat", "heat", "reduce_heat"].includes(option.action)) return "response_action_mismatch";
   if (option.action === "heat" && (!heating || !/heating limitation/.test(checked) || !conditional)) return "response_action_mismatch";
   if (option.action === "reduce_heat" && !/\b(reduce|limit|lower)\b.{0,30}\bheat/.test(prose)) return "response_action_mismatch";
